@@ -10,10 +10,10 @@ The user experience adheres to four core tenets:
 4. **Data Privacy First**: Passwords are masked by default (`••••••••`), clipboard clears automatically, and secrets are handled strictly in-memory.
 
 ### Window Sizing & Positioning Standard
-- **Default Application Window Size**: `800 × 500 px` (`WINDOW_WIDTH = 800`, `WINDOW_HEIGHT = 500`).
+- **Default Application Window Size**: `1100 × 780 px` (`WINDOW_WIDTH = 1100`, `WINDOW_HEIGHT = 780`).
 - **Consistency**: Maintained uniformly across First-Run Setup Wizard (`SetupWizard`), Login View (`LockedView`), and Main Vault (`UnlockedView`).
 - **Positioning**: Automatically centered on the user's available primary display area without jumping or repositioning across screen transitions.
-- **Resizability**: Windows initialize at 800 × 500 px and allow fluid user resizing without fixed constraint restrictions.
+- **Resizability**: Windows initialize at 1100 × 780 px and allow fluid user resizing without fixed constraint restrictions.
 
 ---
 

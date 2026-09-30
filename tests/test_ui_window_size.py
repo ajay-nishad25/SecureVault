@@ -1,11 +1,11 @@
-"""Automated tests for consistent application window sizing (800 x 500).
+"""Automated tests for consistent application window sizing (1100 x 780).
 
 Verifies:
-  1. Centralized WINDOW_WIDTH and WINDOW_HEIGHT constants (800x500).
-  2. Setup Wizard initial dimensions = 800 x 500.
-  3. Login / Locked View initial dimensions = 800 x 500.
-  4. Main Vault / Unlocked View initial dimensions = 800 x 500.
-  5. ApplicationController transitions preserve 800 x 500 across all screens.
+  1. Centralized WINDOW_WIDTH and WINDOW_HEIGHT constants (1100 x 780).
+  2. Setup Wizard initial dimensions = 1100 x 780.
+  3. Login / Locked View initial dimensions = 1100 x 780.
+  4. Main Vault / Unlocked View initial dimensions = 1100 x 780.
+  5. ApplicationController transitions preserve 1100 x 780 across all screens.
   6. Centering helper positions windows properly on the primary screen.
 """
 
@@ -50,26 +50,26 @@ def test_setup(tmp_path: Path):
 
 
 def test_window_dimension_constants() -> None:
-    """Verify centralized constants and AppConfig defaults are 800x500."""
-    assert WINDOW_WIDTH == 800
-    assert WINDOW_HEIGHT == 500
+    """Verify centralized constants and AppConfig defaults are 1100x780."""
+    assert WINDOW_WIDTH == 1100
+    assert WINDOW_HEIGHT == 780
 
     config = AppConfig()
-    assert config.window_width == 800
-    assert config.window_height == 500
+    assert config.window_width == 1100
+    assert config.window_height == 780
 
 
 def test_setup_wizard_initial_dimensions(qapp: QApplication, test_setup) -> None:
-    """Verify Setup Wizard starts with 800 x 500 dimensions."""
+    """Verify Setup Wizard starts with 1100 x 780 dimensions."""
     config, init_service, _, vault_service = test_setup
     wizard = SetupWizard(init_service=init_service, vault_service=vault_service)
 
-    assert wizard.width() == 800
-    assert wizard.height() == 500
+    assert wizard.width() == 1100
+    assert wizard.height() == 780
 
 
 def test_locked_view_initial_dimensions(qapp: QApplication, test_setup) -> None:
-    """Verify LockedView (Login) starts with 800 x 500 dimensions."""
+    """Verify LockedView (Login) starts with 1100 x 780 dimensions."""
     config, init_service, auth_service, vault_service = test_setup
     locked_view = LockedView(
         init_service=init_service,
@@ -77,12 +77,12 @@ def test_locked_view_initial_dimensions(qapp: QApplication, test_setup) -> None:
         vault_service=vault_service,
     )
 
-    assert locked_view.width() == 800
-    assert locked_view.height() == 500
+    assert locked_view.width() == 1100
+    assert locked_view.height() == 780
 
 
 def test_unlocked_view_initial_dimensions(qapp: QApplication, test_setup) -> None:
-    """Verify UnlockedView (Main Vault) starts with 800 x 500 dimensions."""
+    """Verify UnlockedView (Main Vault) starts with 1100 x 780 dimensions."""
     config, _, _, vault_service = test_setup
     vault = vault_service.create_vault(
         master_password="MasterTestPassword123!",
@@ -94,12 +94,12 @@ def test_unlocked_view_initial_dimensions(qapp: QApplication, test_setup) -> Non
         vault_service=vault_service,
     )
 
-    assert unlocked_view.width() == 800
-    assert unlocked_view.height() == 500
+    assert unlocked_view.width() == 1100
+    assert unlocked_view.height() == 780
 
 
 def test_screen_transitions_maintain_consistent_size(qapp: QApplication, test_setup) -> None:
-    """Verify ApplicationController transitions maintain 800x500 across screens."""
+    """Verify ApplicationController transitions maintain 1100x780 across screens."""
     config, init_service, auth_service, vault_service = test_setup
 
     # Initialize vault
@@ -119,22 +119,22 @@ def test_screen_transitions_maintain_consistent_size(qapp: QApplication, test_se
     # 1. Start on LockedView
     controller.start()
     assert controller.current_window is not None
-    assert controller.current_window.width() == 800
-    assert controller.current_window.height() == 500
+    assert controller.current_window.width() == 1100
+    assert controller.current_window.height() == 780
     assert isinstance(controller.current_window, LockedView)
 
     # 2. Transition to UnlockedView
     controller._on_vault_unlocked(vault)
     assert controller.current_window is not None
-    assert controller.current_window.width() == 800
-    assert controller.current_window.height() == 500
+    assert controller.current_window.width() == 1100
+    assert controller.current_window.height() == 780
     assert isinstance(controller.current_window, UnlockedView)
 
     # 3. Transition back to LockedView
     controller._on_vault_locked()
     assert controller.current_window is not None
-    assert controller.current_window.width() == 800
-    assert controller.current_window.height() == 500
+    assert controller.current_window.width() == 1100
+    assert controller.current_window.height() == 780
     assert isinstance(controller.current_window, LockedView)
 
 
@@ -148,5 +148,5 @@ def test_center_window_utility(qapp: QApplication, test_setup) -> None:
     )
 
     center_window(locked_view)
-    assert locked_view.width() == 800
-    assert locked_view.height() == 500
+    assert locked_view.width() == 1100
+    assert locked_view.height() == 780

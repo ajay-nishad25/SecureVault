@@ -53,8 +53,8 @@ def get_default_data_dir() -> Path:
             return Path(local_app_data) / "SecureVault"
         return Path.home() / "AppData" / "Local" / "SecureVault"
 # Canonical application window dimensions
-WINDOW_WIDTH: int = 800
-WINDOW_HEIGHT: int = 500
+WINDOW_WIDTH: int = 1100
+WINDOW_HEIGHT: int = 780
 
 
 @dataclass(frozen=True)

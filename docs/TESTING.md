@@ -186,11 +186,11 @@ SecureVault's testing architecture enforces high-reliability standards appropria
   - **Lock Reset**: Verifies locking active session resets and clears search field buffer.
   - **Smooth Scrolling Configuration**: Verifies `ScrollPerPixel` and single step 16px are preserved.
 - `tests/test_ui_window_size.py` (6 tests):
-  - **Dimension Constants**: Verifies centralized `WINDOW_WIDTH = 800` and `WINDOW_HEIGHT = 500`.
-  - **Setup Wizard Sizing**: Verifies `SetupWizard` initializes at 800 × 500 px.
-  - **Locked View Sizing**: Verifies `LockedView` initializes at 800 × 500 px.
-  - **Unlocked View Sizing**: Verifies `UnlockedView` initializes at 800 × 500 px.
-  - **Consistent Screen Transitions**: Verifies transitions across `SetupWizard -> LockedView -> UnlockedView -> LockedView` maintain 800 × 500 px.
+  - **Dimension Constants**: Verifies centralized `WINDOW_WIDTH = 1100` and `WINDOW_HEIGHT = 780`.
+  - **Setup Wizard Sizing**: Verifies `SetupWizard` initializes at 1100 × 780 px.
+  - **Locked View Sizing**: Verifies `LockedView` initializes at 1100 × 780 px.
+  - **Unlocked View Sizing**: Verifies `UnlockedView` initializes at 1100 × 780 px.
+  - **Consistent Screen Transitions**: Verifies transitions across `SetupWizard -> LockedView -> UnlockedView -> LockedView` maintain 1100 × 780 px.
   - **Centering Utility**: Verifies `center_window` positions top-level widgets correctly without error.
 
 ---
