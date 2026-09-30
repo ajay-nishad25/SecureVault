@@ -56,7 +56,7 @@ class AddCredentialDialog(QDialog):
         form = QFormLayout()
 
         self.title_input = QLineEdit()
-        self.title_input.setPlaceholderText("e.g. GitHub, Google, Work Email")
+        self.title_input.setPlaceholderText("e.g. Github")
         form.addRow("Title *:", self.title_input)
 
         self.username_input = QLineEdit()
