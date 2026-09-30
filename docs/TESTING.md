@@ -88,16 +88,17 @@ SecureVault's testing architecture enforces high-reliability standards appropria
   - **No Secret Logging**: Uses `caplog` to assert that master password and raw KEK hex are NEVER emitted to application logs.
 
 ### 2.8 View Controller & UI Integration Tests
-- `tests/test_ui_locked_view.py` (7 tests):
+- `tests/test_ui_locked_view.py` (9 tests):
   - Verifies `LockedView` displays active `Login ID`.
   - Verifies password visibility toggle (Password <-> Normal echo mode).
   - Verifies empty password submission displays validation error without calling worker.
-  - Verifies `AuthWorker(QThread)` executes KDF derivation off main thread, emits `unlock_successful`, and passes derived KEK.
-  - Verifies failed derivation emits `unlock_failed` and displays user-friendly error.
-  - Verifies that clicking `Reset Setup (Dev)` emits `reset_requested` and cleans up state.
+  - Verifies successful password unlock emits `vault_unlocked` Signal containing a non-None `DecryptedVault` with valid `vault_id` and `items`.
+  - Verifies wrong password does NOT emit `vault_unlocked`, displays user error, and leaves vault locked.
+  - Verifies `ApplicationController` transitions to `UnlockedView` with valid `DecryptedVault` on success, rejects wrong password without view transition, and transitions back to `LockedView` upon locking.
+  - Verifies clicking `Reset Setup (Dev)` emits `reset_requested` and cleans up state and vault file.
   - Verifies `ApplicationController` routes uninitialized state to wizard and initialized state to locked view.
 - `tests/test_flow.py`:
-  - Full end-to-end integration test: uninitialized -> cancel -> complete setup -> locked view -> restart.
+  - Full end-to-end integration test: uninitialized -> cancel -> complete setup -> locked view -> wrong password rejection -> correct password unlock to `UnlockedView(vault=DecryptedVault)` -> lock back to `LockedView`.
 
 ### 2.9 AES-256-GCM Encryption Tests (M4)
 - `tests/test_encryption.py` (18 tests):

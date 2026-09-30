@@ -88,12 +88,14 @@
 - **UI Integration (`app/ui/setup/wizard.py`, `app/ui/locked_view.py`, `app/ui/unlocked_view.py`, `app/ui/app_window.py`)**:
   - Setup Wizard now creates the real encrypted `vault.svault` file upon completing onboarding.
   - `LockedView` uses background `AuthWorker(QThread)` to unlock and decrypt vault without freezing the event loop.
-  - `UnlockedView` placeholder displays unlocked status, vault ID, item count, and a "Lock Vault" button.
-  - `ApplicationController` routes `UNINITIALIZED -> SetupWizard -> LOCKED -> UnlockedView -> LOCKED`.
+  - Emits `vault_unlocked(DecryptedVault)` carrying the concrete decrypted session object to `ApplicationController._on_vault_unlocked(vault)`.
+  - `UnlockedView` displays real session metadata (`vault_id`, stored item count) from the active `DecryptedVault`.
+  - `ApplicationController` routes `UNINITIALIZED -> SetupWizard -> LOCKED -> UnlockedView -> LOCKED`, locking active session on exit.
+  - Fixed M4 GUI integration bug: removed legacy transitional fallback in `AuthWorker.run()` that emitted `vault=None`, enforced strict `DecryptedVault` propagation, updated UI feedback message to "Vault decrypted and authenticated successfully.", and added missing vault file detection and recovery guidance.
 - **Files Added / Modified**:
   - *Added*: `app/crypto/encryption.py`, `app/storage/vault_format.py`, `app/storage/vault_file.py`, `app/services/vault_service.py`, `app/ui/unlocked_view.py`, `tests/test_encryption.py`, `tests/test_vault_format.py`, `tests/test_vault_service.py`.
   - *Modified*: `requirements.txt`, `pyproject.toml`, `app/crypto/__init__.py`, `app/storage/__init__.py`, `app/services/__init__.py`, `app/core/exceptions.py`, `app/services/initialization.py`, `app/ui/setup/wizard.py`, `app/ui/locked_view.py`, `app/ui/app_window.py`, `tests/test_ui_locked_view.py`, `tests/test_flow.py`.
-- **Testing**: 152 tests passing (44 new tests covering AES-256-GCM primitives, 134-byte golden binary layout, file tampering/corruption, atomic persistence, security secrecy, and end-to-end unlock).
+- **Testing**: 154 tests passing (46 new tests covering AES-256-GCM primitives, 134-byte golden binary layout, file tampering/corruption, atomic persistence, security secrecy, wrong-password rejection, and DecryptedVault propagation to UnlockedView).
 
 ---
 

@@ -62,6 +62,7 @@ class ApplicationController:
         result = wizard.exec()
         if result == QDialog.DialogCode.Accepted and wizard.is_setup_successful():
             logger.info("Setup completed successfully. Transitioning to LOCKED view.")
+            self.vault_service.lock_vault()
             return self._show_locked_view()
 
         logger.info("Setup wizard closed without completion. Exiting.")
@@ -82,12 +83,15 @@ class ApplicationController:
         return 0
 
     def _show_unlocked_view(self, vault: DecryptedVault) -> int:
+        if vault is None:
+            logger.error("Attempted to show UnlockedView with vault=None.")
+            raise ValueError("vault cannot be None when displaying UnlockedView.")
         login_id = self.init_service.get_login_id() or "Default User"
         unlocked_view = UnlockedView(vault=vault, login_id=login_id)
         self.current_window = unlocked_view
 
         # Wire lock action back to locked state
-        unlocked_view.lock_requested.connect(self._show_locked_view)
+        unlocked_view.lock_requested.connect(self._on_vault_locked)
         unlocked_view.show()
         return 0
 
@@ -96,6 +100,13 @@ class ApplicationController:
         if self.current_window:
             self.current_window.close()
         self._show_unlocked_view(vault)
+
+    def _on_vault_locked(self) -> None:
+        logger.info("Lock requested. Locking vault session and transitioning to LOCKED view.")
+        self.vault_service.lock_vault()
+        if self.current_window:
+            self.current_window.close()
+        self._show_locked_view()
 
     def _on_dev_reset(self) -> None:
         logger.info("Reset requested. Relaunching First-Run Setup Wizard.")

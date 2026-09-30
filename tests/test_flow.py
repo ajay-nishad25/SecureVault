@@ -88,9 +88,9 @@ def test_full_m2_onboarding_lifecycle() -> None:
         assert controller.current_window is not None
         assert controller.current_window.windowTitle() == "SecureVault — Vault Locked"
 
-        # 6. Unlock via LockedView
+        # 6. Attempt unlock with wrong password
         locked_view = controller.current_window
-        locked_view.password_input.setText("MasterPassword2026!")
+        locked_view.password_input.setText("WrongPassword2026!")
         locked_view._on_unlock_clicked()
         if locked_view._worker:
             locked_view._worker.wait(3000)
@@ -98,12 +98,29 @@ def test_full_m2_onboarding_lifecycle() -> None:
         if app:
             app.processEvents()
 
-        # Controller must have transitioned to UnlockedView
+        # Controller must remain on LockedView
+        assert controller.current_window is not None
+        assert controller.current_window.windowTitle() == "SecureVault — Vault Locked"
+        assert "Incorrect master password" in locked_view.status_label.text()
+
+        # 7. Unlock via LockedView with correct password
+        locked_view.password_input.setText("MasterPassword2026!")
+        locked_view._on_unlock_clicked()
+        if locked_view._worker:
+            locked_view._worker.wait(3000)
+        if app:
+            app.processEvents()
+
+        # Controller must have transitioned to UnlockedView with valid DecryptedVault
         assert controller.current_window is not None
         assert controller.current_window.windowTitle() == "SecureVault — Vault Unlocked"
-
-        # 7. Lock via UnlockedView
         unlocked_view = controller.current_window
+        assert unlocked_view._vault is not None
+        assert isinstance(unlocked_view._vault.vault_id, str)
+        assert len(unlocked_view._vault.vault_id) > 0
+        assert unlocked_view._vault.item_count == 0
+
+        # 8. Lock via UnlockedView
         unlocked_view._on_lock_clicked()
         if app:
             app.processEvents()

@@ -76,11 +76,13 @@ SecureVault is built on five core architectural principles:
     ```text
     UI (LockedView)
           ↓ (AuthWorker QThread)
-    AuthenticationService
+    VaultService.unlock_vault(master_password)
+          ↓ (Argon2id KDF -> 32-byte KEK -> unwrap DEK -> decrypt payload)
+    DecryptedVault (in-memory)
+          ↓ (vault_unlocked Signal(object))
+    ApplicationController._on_vault_unlocked(vault)
           ↓
-    Argon2id KDF (app.crypto.kdf)
-          ↓
-    32-byte KEK (Key Encryption Key)
+    UnlockedView(vault=DecryptedVault, login_id=login_id)
     ```
   - Validate master password complexity rules and input constraints prior to invoking KDF.
   - Coordinate with the Cryptography Layer (`app.crypto.kdf`) to derive the 32-byte Key Encryption Key (KEK) using Argon2id and the vault's salt.

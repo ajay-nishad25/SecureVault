@@ -65,30 +65,24 @@ class AuthWorker(QThread):
 
     def run(self) -> None:
         try:
-            # Check if vault file exists
-            if not self._vault_service.is_vault_created():
-                # Fallback for dev mode when vault is not yet created on disk
-                res = self._auth_service.authenticate(self._password)
-                if res.success:
-                    result = UnlockResult(success=True, error=None)
-                else:
-                    result = UnlockResult(success=False, error=res.error)
-            else:
-                # Real M4 cryptographic unlock flow
-                vault = self._vault_service.unlock_vault(self._password)
-                result = UnlockResult(success=True, vault=vault, error=None)
+            vault = self._vault_service.unlock_vault(self._password)
+            result = UnlockResult(success=True, vault=vault, error=None)
         except AuthenticationError as err:
             logger.warning("Authentication failed: incorrect master password.")
-            result = UnlockResult(success=False, error=str(err))
+            result = UnlockResult(success=False, vault=None, error=str(err))
         except CorruptedVaultError as err:
             logger.error("Unlock failed: corrupted vault file: %s", err)
-            result = UnlockResult(success=False, error=f"Vault corruption detected: {err}")
+            result = UnlockResult(success=False, vault=None, error=f"Vault corruption detected: {err}")
         except VaultNotFoundError as err:
             logger.error("Unlock failed: vault file not found: %s", err)
-            result = UnlockResult(success=False, error="Vault file not found. Please re-run setup.")
+            result = UnlockResult(
+                success=False,
+                vault=None,
+                error="Encrypted vault file (vault.svault) not found on disk. Please click 'Reset Setup (Dev)' to create a vault.",
+            )
         except Exception as err:
             logger.error("Unexpected error during vault unlock: %s", err)
-            result = UnlockResult(success=False, error="An unexpected error occurred during unlock.")
+            result = UnlockResult(success=False, vault=None, error="An unexpected error occurred during unlock.")
         finally:
             self._password = ""
 
@@ -183,6 +177,14 @@ class LockedView(QWidget):
         self.exit_btn.clicked.connect(self.close)
         btn_layout.addWidget(self.exit_btn)
 
+        # Check if encrypted vault file exists
+        if not self._vault_service.is_vault_created():
+            self.status_label.setText(
+                "⚠️ Encrypted vault file (vault.svault) not found.\n"
+                "Please click 'Reset Setup (Dev)' to re-run setup and initialize your vault."
+            )
+            self.status_label.setStyleSheet("color: #d29922; font-weight: bold; font-size: 11px;")
+
         layout.addLayout(btn_layout)
         self.setLayout(layout)
 
@@ -215,13 +217,17 @@ class LockedView(QWidget):
         self._set_ui_busy(False)
         self.password_input.clear()
 
-        if result.success:
+        if result.success and result.vault is not None:
             logger.info("Vault unlock successful in UI.")
-            self.status_label.setText("✓ Vault unlocked successfully!")
+            self.status_label.setText("✓ Vault decrypted and authenticated successfully.")
             self.status_label.setStyleSheet("color: #44bb44; font-weight: bold;")
             self.vault_unlocked.emit(result.vault)
             # Backward compatibility with M3 test suite
-            auth_res = AuthenticationResult(success=True, kek=b"\x00" * 32, message="Success")
+            auth_res = AuthenticationResult(
+                success=True,
+                kek=b"\x00" * 32,
+                message="Vault decrypted and authenticated successfully.",
+            )
             self.authenticated.emit(auth_res)
         else:
             self.status_label.setText(f"✕ {result.error or 'Incorrect master password or invalid vault.'}")
@@ -237,5 +243,11 @@ class LockedView(QWidget):
     def _on_reset(self) -> None:
         self._auth_service.clear_session()
         self._init_service.reset()
+        if self._vault_service.is_vault_created():
+            try:
+                self._vault_service.config.vault_path.unlink()
+            except OSError:
+                pass
+        self._vault_service.lock_vault()
         self.reset_requested.emit()
         self.close()
