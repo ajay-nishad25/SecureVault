@@ -1,0 +1,5 @@
+# SecureVault — Development & Test Dependencies
+-r requirements.txt
+
+# Testing framework
+pytest>=7.4.0,<9.0.0

@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "securevault"
+version = "0.1.0"
+description = "Completely offline, open-source desktop password manager"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "SecureVault Contributors" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: Microsoft :: Windows",
+    "Environment :: X11 Applications :: Qt",
+    "Topic :: Security :: Cryptography",
+]
+dependencies = [
+    "PySide6>=6.5.0,<7.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0,<9.0.0",
+]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --strict-markers"

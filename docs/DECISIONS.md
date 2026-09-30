@@ -104,3 +104,16 @@ Each record details the context, decision, and consequences.
 - **Consequences**:
   - *Positive*: High initial quality by focusing on Windows `%LOCALAPPDATA%` and Windows packaging first, without introducing platform-specific abstractions that break on Linux.
   - *Trade-off*: Linux-specific keyring integration is deferred to post-v1.
+
+---
+
+## ADR-011: Safe Configuration & Logging Boundaries
+- **Status**: Accepted (Milestone M1)
+- **Context**: Desktop applications often inadvertently serialize runtime secrets into config files or emit them into log files during debugging or error handling.
+- **Decision**:
+  1. Configuration is strictly restricted to non-sensitive operational parameters. Storing master passwords, KEK, DEK, vault plaintext, or recovery keys in configuration files is programmatically prohibited.
+  2. The application logger installs a `SafeLogFilter` that actively redacts patterns matching passwords, tokens, keys, and secrets.
+  3. No remote logging, cloud telemetry, or external log collectors are permitted.
+- **Consequences**:
+  - *Positive*: Eliminates accidental credential exposure in config files (`settings.json`) or terminal logs.
+  - *Trade-off*: Developers must inspect redacted values in debuggers rather than dumping raw credential strings to console logs.

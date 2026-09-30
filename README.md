@@ -4,36 +4,99 @@
 
 ---
 
-## Key Principles
+## Current Status
 
-- **100% Offline & Zero-Cloud**: No internet connectivity, no remote servers, no account synchronization, and zero telemetry.
-- **Modern Cryptography**: Powered by **Argon2id** (RFC 9106) for password-based key derivation and **AES-256-GCM** (NIST SP 800-38D) for authenticated encryption.
-- **Flat Encrypted Storage**: Zero SQLite database dependencies. The entire vault is persisted in an encrypted binary envelope (`vault.svault`) with atomic write guarantees.
-- **Two-Tier Key Hierarchy**: Master Password derives a Key Encryption Key (KEK) that wraps a uniformly random Data Encryption Key (DEK). Re-wrapping the DEK allows instant password rotation without re-encrypting the vault payload.
-- **Session Security**: 10-minute inactivity auto-lock, immediate manual lock (`Ctrl+L`), and best-effort memory clearing on lock.
-- **Zero-Backdoor Security**: No recovery keys or emergency bypasses in Version 1.
+- **Current Milestone**: `M1 — Project Skeleton & Development Foundation` (Complete / Ready for Review)
+- **Active Version**: `0.1.0`
+- **Application State**: The project skeleton, dependency management, package layout, safe configuration, logging, exception hierarchy, and pytest test suite are established. Product features (master authentication, encryption engine, credential vault, and UI) are scheduled across milestones M2 through M14.
 
 ---
 
 ## Technical Stack
 
-- **Language**: Python 3.11+
+- **Language**: Python 3.11+ (Tested on Python 3.11.4)
 - **GUI Toolkit**: PySide6 (Qt 6 for Python)
-- **Cryptographic Libraries**: `cryptography`, `argon2-cffi`
-- **Initial Platform**: Windows 10/11 (with cross-platform architecture targeting Linux in post-v1)
+- **Cryptographic Libraries**: `cryptography`, `argon2-cffi` (scheduled for M3/M4)
+- **Test Runner**: `pytest`
+- **Target Platform**: Windows 10/11 (with cross-platform architecture targeting Linux in post-v1)
 
 ---
 
-## Project Status
+## Developer Quickstart
 
-- **Current Milestone**: `M0 — Architecture & Security Design` (Ready to Freeze / Commit)
-- **Current Phase**: Architectural, cryptographic, and security specifications complete and verified. Implementation begins in `M1`.
+### 1. Prerequisites
+Ensure Python 3.11 or higher is installed and available on your system path:
+```bash
+python --version
+```
+
+### 2. Create and Activate Virtual Environment
+```powershell
+# Create local virtual environment
+python -m venv .venv
+
+# Activate virtual environment (Windows PowerShell)
+.venv\Scripts\Activate.ps1
+```
+
+### 3. Install Dependencies
+```powershell
+# Install runtime dependencies
+pip install -r requirements.txt
+
+# Or install all development and testing dependencies
+pip install -r requirements-dev.txt
+```
+
+### 4. Run the Application Entry Point
+```powershell
+# Execute the M1 foundation entry point
+python main.py
+
+# Verify configuration and data directory resolution
+python main.py --check-config
+
+# Display version
+python main.py --version
+```
+
+### 5. Run the Test Suite
+```powershell
+# Run all unit tests
+pytest
+
+# Run tests with verbose output
+pytest -v
+```
+
+---
+
+## Package Structure
+
+```text
+SecureVault/
+├── app/
+│   ├── __init__.py       # Central version definition (__version__ = "0.1.0")
+│   ├── core/             # AppConfig, Safe Logging, Domain Exceptions
+│   ├── crypto/           # Cryptographic primitives boundary (M3/M4)
+│   ├── storage/          # Binary envelope & atomic file persistence boundary (M4)
+│   ├── services/         # Clipboard watchdog & auto-lock services boundary (M7/M10)
+│   ├── models/           # CredentialItem & VaultPayload domain models (M5)
+│   └── ui/               # PySide6 desktop views & themes (M2/M6/M8)
+├── tests/                # Pytest unit & integration test suites
+├── docs/                 # Architectural, security, and design specifications
+├── main.py               # Minimal application entry point & CLI verification
+├── requirements.txt      # Runtime dependencies (PySide6)
+├── requirements-dev.txt  # Dev/test dependencies (pytest)
+├── pyproject.toml        # Package metadata & pytest configuration
+└── README.md             # Developer setup, principles, and roadmap
+```
 
 ---
 
 ## Documentation Index
 
-Comprehensive project documentation is maintained in the [`docs/`](file:///c:/Users/Ajay%20Nishad/Documents/SecureVault/docs/) directory:
+Comprehensive project specifications are maintained in the [`docs/`](file:///c:/Users/Ajay%20Nishad/Documents/SecureVault/docs/) directory:
 
 - [AI Context & Handoff Guide](file:///c:/Users/Ajay%20Nishad/Documents/SecureVault/docs/AI_CONTEXT.md)
 - [Current Project State](file:///c:/Users/Ajay%20Nishad/Documents/SecureVault/docs/CURRENT_STATE.md)

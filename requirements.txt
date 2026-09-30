@@ -1,0 +1,5 @@
+# SecureVault — Runtime Dependencies
+# Python 3.11+ is required.
+# Cryptographic libraries (cryptography, argon2-cffi) will be introduced in M3/M4.
+
+PySide6>=6.5.0,<7.0.0
