@@ -52,7 +52,9 @@ def get_default_data_dir() -> Path:
         if local_app_data:
             return Path(local_app_data) / "SecureVault"
         return Path.home() / "AppData" / "Local" / "SecureVault"
-    return Path.home() / ".local" / "share" / "securevault"
+# Canonical application window dimensions
+WINDOW_WIDTH: int = 800
+WINDOW_HEIGHT: int = 500
 
 
 @dataclass(frozen=True)
@@ -68,6 +70,8 @@ class AppConfig:
     default_auto_lock_minutes: int = 10
     default_clipboard_clear_seconds: int = 30
     log_level: str = "INFO"
+    window_width: int = WINDOW_WIDTH
+    window_height: int = WINDOW_HEIGHT
 
     @property
     def vault_path(self) -> Path:

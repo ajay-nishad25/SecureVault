@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QWizardPage,
 )
 
+from app.core.config import WINDOW_HEIGHT, WINDOW_WIDTH
 from app.core.logging import get_logger
 from app.core.validation import (
     estimate_password_strength,
@@ -377,7 +378,8 @@ class SetupWizard(QWizard):
 
         self.setWindowTitle("SecureVault — First-Run Setup")
         self.setWizardStyle(QWizard.WizardStyle.ModernStyle)
-        self.resize(650, 480)
+        self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
+        self.center_on_screen()
 
         # Instantiate pages
         self.welcome_page = WelcomePage()
@@ -396,6 +398,20 @@ class SetupWizard(QWizard):
         self.addPage(self.password_page)
         self.addPage(self.warning_page)
         self.addPage(self.completion_page)
+
+    def center_on_screen(self) -> None:
+        """Center the wizard on the primary screen."""
+        from PySide6.QtWidgets import QApplication
+
+        app = QApplication.instance()
+        if not app:
+            return
+        screen = self.screen() or app.primaryScreen()
+        if screen:
+            geo = screen.availableGeometry()
+            x = geo.x() + max(0, (geo.width() - self.width()) // 2)
+            y = geo.y() + max(0, (geo.height() - self.height()) // 2)
+            self.move(x, y)
 
     def get_login_id(self) -> str:
         """Retrieve the configured Login ID from the login ID page."""

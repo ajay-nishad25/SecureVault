@@ -13,7 +13,7 @@ SecureVault is an open-source, completely offline, zero-cloud desktop password m
 - **Language**: Python 3.11+ (Runtime: Python 3.11.4 in `.venv/`)
 - **GUI Framework**: PySide6 (Qt 6 for Python)
 - **Cryptography**: `argon2-cffi` (Argon2id KDF), standard `secrets` CSPRNG, `cryptography` (AES-256-GCM AEAD, key wrapping, payload encryption)
-- **Testing**: `pytest` (216 passing tests)
+- **Testing**: `pytest` (233 passing tests)
 - **Platform**: Windows 10/11 64-bit first (`%LOCALAPPDATA%\SecureVault\`); portable design for Linux.
 
 ---
@@ -30,7 +30,7 @@ SecureVault/
 │   ├── models/           # Credential domain model (id, title, username, password, notes)
 │   └── ui/               # ApplicationController, LockedView, UnlockedView, SetupWizard, View/Edit Dialogs
 │       └── setup/        # Multi-step QWizard onboarding pages
-├── tests/                # Pytest unit & integration test suites (216 tests)
+├── tests/                # Pytest unit & integration test suites (233 tests)
 ├── docs/                 # Architectural, security, and design specifications
 ├── main.py               # Application entry point (GUI launch + headless flags)
 ├── requirements.txt      # Runtime dependencies (PySide6, argon2-cffi, cryptography)
@@ -48,14 +48,13 @@ SecureVault/
   - `M2 — First-Run Setup Wizard` (Complete)
   - `M3 — Master Authentication Foundation` (Complete)
   - `M4 — Cryptographic Vault Implementation` (Complete)
-  - `M5 — Credential CRUD, Encrypted Persistence & View/Edit UI` (Complete / Ready for Review)
-- **Next Milestone**: `M6 — Credential Management UI & In-Memory Search`
-- **Location of M5 Credential Layer**:
-  - `app/models/credential.py`: `Credential` entity with `id`, `title`, `username`, `password`, `notes`.
-  - `app/services/credential_service.py`: `CredentialService` CRUD methods.
-  - `app/services/vault_service.py`: `save_vault` atomic AES-256-GCM re-encryption.
-  - `app/ui/unlocked_view.py`: UI integration (`CredentialCardWidget`, `ViewCredentialDialog`, `EditCredentialDialog`, `AddCredentialDialog`, item list, delete, lock).
-- *Do not begin M6 or search/generator implementation without user instruction.*
+  - `M5 — Credential CRUD, Encrypted Persistence & View/Edit UI` (Complete)
+  - `M6 — Main Vault UI + Search` (Complete / Ready for Review)
+- **Next Milestone**: `M7 — Session Security & Auto-Lock`
+- **Location of M6 Main Vault & Search Layer**:
+  - `app/ui/unlocked_view.py`: `UnlockedView` with search bar (`QLineEdit`), live in-memory filtering (`title`, `username`, `notes`), password exclusion security boundary, counter, empty states, and card list integration.
+  - `tests/test_ui_search.py`: Comprehensive automated search and UI tests.
+- *Do not begin M7 without user instruction.*
 
 ---
 

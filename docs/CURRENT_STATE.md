@@ -2,10 +2,10 @@
 
 ## 1. Milestone Tracking
 
-- **Current Milestone**: `M5 — Credential CRUD & Encrypted Persistence`
+- **Current Milestone**: `M6 — Main Vault UI + Search`
 - **Status**: **Implementation Complete / Ready for Review**
 - **Target Release**: Version 1.0.0 (Windows)
-- **Next Milestone**: `M6 — Credential Management UI & In-Memory Search`
+- **Next Milestone**: `M7 — Session Security & Auto-Lock`
 
 ---
 
@@ -121,33 +121,61 @@
   - Seamless data flow verified: `UI -> CredentialService -> DecryptedVault -> VaultService -> Encrypted .svault`.
 - **Testing**: 216 tests passing across entire suite (62 M5 tests covering models, CRUD operations, persistence lifecycles, UI view/edit/card layout, delete confirmation, and smooth scrolling).
 
+### Milestone 6 (M6 — Main Vault UI + Search)
+- **Main Vault Layout Enhancements (`app/ui/unlocked_view.py`)**:
+  - Upgraded `UnlockedView` to provide clean hierarchical layout:
+    - Window title: `SecureVault — Vault Unlocked`
+    - Header: `🔓 SecureVault — Unlocked`
+    - Profile: `Profile: <b>{login_id}</b>`
+    - Vault ID: `Vault ID: <code>{vault_id}</code>`
+    - Search Bar row: `[ Search credentials... ] [ Clear ]`
+    - Dynamic credential counter: `Stored Credentials: <b>{total}</b>` (or `Showing <b>{matched}</b> of <b>{total}</b> credentials`)
+    - Credential list with smooth pixel scrolling (`ScrollPerPixel`)
+    - Bottom action bar: `[ ➕ Add Credential ] [ 🔒 Lock Vault ] [ Exit ]`
+- **In-Memory Credential Search**:
+  - Live search on `textChanged` signal with zero debouncing latency.
+  - Substring matching across `title`, `username`, and `notes`.
+  - Case-insensitive search (`lower()`).
+  - **CRITICAL SECURITY BOUNDARY**: The `password` field is strictly excluded from search operations and is never inspected or matched.
+  - Read-only UI operation: search never alters vault state, never saves, and never triggers disk I/O.
+- **Clear Search Controls**:
+  - Native clear icon and dedicated `[ Clear ]` button resets input and immediately restores full credential list and counter.
+- **Empty State Feedback**:
+  - Empty Vault State (`total == 0`): displays `"No credentials yet. Add your first credential to get started."` with a direct `[ ➕ Add Credential ]` button.
+  - No Search Results State (`total > 0`, `matched == 0`): displays `"No credentials found. Try a different search term."` while keeping bottom actions available.
+- **Action & Identity Preservation**:
+  - Filtered cards retain true `cred.id`; clicking `View`, `Edit`, or `Delete` operates strictly on the intended credential, never list indices.
+  - Delete confirmation modal preserved on filtered cards.
+  - Session lock clears search query text buffer.
+- **Testing**: 233 automated tests passing across entire suite (17 new dedicated M6 tests in `tests/test_ui_search.py`).
+
 ---
 
-## 3. What is Intentionally NOT Implemented in M5
+## 3. What is Intentionally NOT Implemented in M6
 
 In strict adherence to project boundaries:
-- **Search & Filtering**: Scheduled for M6.
-- **Advanced Multi-Pane Vault UI**: Scheduled for M6.
-- **Password Generator**: Scheduled for M6.
 - **Auto-Lock Timers**: Scheduled for M7.
+- **Settings & Theming**: Scheduled for M8.
+- **Password Generator**: Scheduled for M9.
 - **Clipboard Management**: Scheduled for M10.
-- **CSV Export**: Permanently excluded from SecureVault.
 - **Password Rotation UI**: Scheduled for M11.
+- **CSV Export / Cloud Sync**: Permanently excluded from SecureVault.
+- **Categories / Tags / Favorites**: Intentionally excluded from M6 scope.
 
 ---
 
 ## 4. Current Task
-M5 Credential CRUD, View/Edit UI, and final UI polish complete and ready for human review.
+M6 Main Vault UI + Search complete, tested, and ready for human review.
 
 ---
 
 ## 5. Next Task
-M6 — Credential Management UI & In-Memory Search.
+M7 — Session Security & Auto-Lock.
 
 ---
 
 ## 6. Known Issues / Unresolved Items
-- **None**: All M5 requirements, CRUD operations, View/Edit UI, delete confirmation, smooth scrolling, atomic persistence, and tests pass with 100% pass rate (216/216 passing tests).
+- **None**: All M6 requirements, search rules, empty states, zero-persistence guarantee, password non-searchability, and 233/233 tests pass with 100% pass rate.
 
 ---
 

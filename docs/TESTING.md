@@ -169,11 +169,34 @@ SecureVault's testing architecture enforces high-reliability standards appropria
   - **Multiple Credential Independence**: Verifies operating on one credential (View GitHub, Edit Google, Delete Google) does not alter or corrupt independent credentials (LinkedIn, GitHub).
   - **Card Signals**: Verifies `CredentialCardWidget` emits view, edit, and delete signals mapped to specific credential IDs.
 
+### 2.13 Main Vault UI & In-Memory Search Tests (M6)
+- `tests/test_ui_search.py` (17 tests):
+  - **Empty Search**: Verifies empty/whitespace query returns full credential list and full counter.
+  - **Title Matching**: Verifies exact and partial substring matching against title.
+  - **Username Matching**: Verifies exact and partial substring matching against username.
+  - **Notes Matching**: Verifies exact and partial substring matching against notes.
+  - **Case-Insensitivity**: Verifies matching is case-insensitive across uppercase, lowercase, and mixed queries.
+  - **Strict Password Non-Searchability**: Verifies passwords are never matched or exposed via search (searching for plaintext password yields 0 results).
+  - **Empty States**: Verifies empty vault message vs no-search-results message.
+  - **Clear Search**: Verifies `[ Clear ]` button clears search input and restores full list and counter.
+  - **Zero-Persistence Guarantee**: Verifies search never triggers `save_vault` or modifies file on disk.
+  - **ID & Action Preservation**: Verifies filtered cards retain exact `cred.id`; View, Edit, and Delete operate on the true credential identity.
+  - **Delete Confirmation**: Verifies confirmation modal remains active on filtered credentials.
+  - **Multi-Credential Lifecycle**: Full sequence `Search -> View -> Edit -> Clear` verifying independent credentials remain intact.
+  - **Lock Reset**: Verifies locking active session resets and clears search field buffer.
+  - **Smooth Scrolling Configuration**: Verifies `ScrollPerPixel` and single step 16px are preserved.
+- `tests/test_ui_window_size.py` (6 tests):
+  - **Dimension Constants**: Verifies centralized `WINDOW_WIDTH = 800` and `WINDOW_HEIGHT = 500`.
+  - **Setup Wizard Sizing**: Verifies `SetupWizard` initializes at 800 × 500 px.
+  - **Locked View Sizing**: Verifies `LockedView` initializes at 800 × 500 px.
+  - **Unlocked View Sizing**: Verifies `UnlockedView` initializes at 800 × 500 px.
+  - **Consistent Screen Transitions**: Verifies transitions across `SetupWizard -> LockedView -> UnlockedView -> LockedView` maintain 800 × 500 px.
+  - **Centering Utility**: Verifies `center_window` positions top-level widgets correctly without error.
+
 ---
 
 ## 3. Future Test Suites (Scheduled per Roadmap)
 
-- **M6 (Vault UI & Search)**: Polished multi-pane credential list, detail editor, instant in-memory filtering.
 - **M7 (Session & Auto-Lock)**: 10-minute inactivity timer expiration, activity event reset, lock memory purging.
 - **M10 (Clipboard Security)**: 30-second clipboard watchdog clearing.
 
@@ -184,6 +207,6 @@ SecureVault's testing architecture enforces high-reliability standards appropria
 All tests are executed using pytest:
 ```powershell
 # Run full test suite
-.venv\Scripts\pytest.exe -v
+.\.venv\Scripts\python.exe -m pytest -v
 ```
-*Current test status: 209 passed, 0 failed.*
+*Current test status: 239 passed, 0 failed.*

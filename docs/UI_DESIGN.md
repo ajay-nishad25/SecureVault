@@ -9,6 +9,12 @@ The user experience adheres to four core tenets:
 3. **Frictionless Keyboard Navigation**: Full tab order support, `Ctrl+F` search focus, `Ctrl+N` new item, `Ctrl+L` instant lock, and `Escape` to close modals.
 4. **Data Privacy First**: Passwords are masked by default (`••••••••`), clipboard clears automatically, and secrets are handled strictly in-memory.
 
+### Window Sizing & Positioning Standard
+- **Default Application Window Size**: `800 × 500 px` (`WINDOW_WIDTH = 800`, `WINDOW_HEIGHT = 500`).
+- **Consistency**: Maintained uniformly across First-Run Setup Wizard (`SetupWizard`), Login View (`LockedView`), and Main Vault (`UnlockedView`).
+- **Positioning**: Automatically centered on the user's available primary display area without jumping or repositioning across screen transitions.
+- **Resizability**: Windows initialize at 800 × 500 px and allow fluid user resizing without fixed constraint restrictions.
+
 ---
 
 ## 2. Planned Screens & Implementation Specifications
@@ -103,20 +109,35 @@ The user experience adheres to four core tenets:
 
 ---
 
-### Screen 4: Main Vault Screen (Milestone M6)
+### Screen 4: Main Vault Screen (Milestone M6 Implemented)
 - **Context**: The primary operational dashboard while unlocked (`UNLOCKED` state).
-- **Layout (Two-Column Split)**:
-  - **Top Navigation Bar**:
-    - App Title & Vault Status indicator (`Unlocked - Auto-locks in 09:42`).
-    - Quick Action: `[ + New Credential ]` (`Ctrl+N`).
-    - Global Action: `[ 🔒 Lock Vault ]` (`Ctrl+L`).
-    - Settings Gear Button: `[ ⚙ Settings ]`.
-  - **Left Sidebar / Master List (35% width)**:
-    - Search Bar (`Ctrl+F`) with real-time text filter.
-    - Category / Tag selector dropdown (`All`, `Personal`, `Work`, `Finance`, `Favorites`).
-    - Scrollable item list showing title, username, and favorite star icon.
-  - **Right Detail Pane (65% width)**:
-    - Details of selected credential, masked password with copy and reveal buttons.
+- **Layout (`UnlockedView`)**:
+  - **Header & Profile Information**:
+    - Status Banner: `🔓 SecureVault — Unlocked` (green status header).
+    - Profile: `Profile: <b>{login_id}</b>`.
+    - Vault Metadata: `Vault ID: <code>{vault_id}</code>`.
+  - **Search Controls**:
+    - Search Bar: `QLineEdit` with placeholder `"Search credentials..."` and native clear button.
+    - Clear Button: Dedicated `[ Clear ]` button beside search bar.
+    - Live Search: Immediate in-memory filtering on `textChanged` across `title`, `username`, and `notes`.
+    - Security Boundary: `password` field is strictly non-searchable.
+  - **Credential Counter**:
+    - Default: `Stored Credentials: <b>{total}</b>`.
+    - Active Filter: `Showing <b>{matched}</b> of <b>{total}</b> credentials`.
+  - **Empty States**:
+    - Empty Vault (`total == 0`): `"No credentials yet. Add your first credential to get started."` with centered `[ ➕ Add Credential ]` button.
+    - No Search Results (`total > 0`, `matched == 0`): `"No credentials found. Try a different search term."`.
+  - **Credential List Area**:
+    - Smooth pixel-based scrolling (`QAbstractItemView.ScrollMode.ScrollPerPixel`) with single step = 16px.
+    - Card delegation via `CardItemDelegate` and `CredentialCardWidget`.
+    - Each card displays `Title`, `Username`, `Notes` (if present), and per-card actions:
+      - `[ 👁 View ]`: Opens read-only `ViewCredentialDialog`.
+      - `[ ✏ Edit ]`: Opens editable `EditCredentialDialog`.
+      - `[ 🗑 Delete ]`: Triggers `Confirm Deletion` modal dialog.
+  - **Bottom Global Action Bar**:
+    - `[ ➕ Add Credential ]`: Opens `AddCredentialDialog`.
+    - `[ 🔒 Lock Vault ]`: Zeroes memory buffers, emits `lock_requested`, and closes session.
+    - `[ Exit ]`: Closes application window.
 
 ---
 

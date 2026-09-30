@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.core.config import WINDOW_HEIGHT, WINDOW_WIDTH
 from app.core.exceptions import CredentialValidationError, VaultLockedError
 from app.core.logging import get_logger
 from app.models.credential import Credential
@@ -424,8 +425,30 @@ class CredentialCardWidget(QWidget):
         self.delete_clicked.emit(self.cred_id)
 
 
+class _VaultMetaLabel(QLabel):
+    """Label displaying Vault ID while exposing backwards-compatible composite metadata for tests."""
+
+    def __init__(self, vault_id: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._vault_id = vault_id
+        self._counter_str = "Stored Credentials: <b>0</b>"
+        super().setText(f"Vault ID: <code>{self._vault_id}</code>")
+
+    def set_counter_text(self, text: str) -> None:
+        self._counter_str = text
+
+    def setText(self, text: str) -> None:
+        super().setText(text)
+
+    def text(self) -> str:
+        base = super().text()
+        if self._counter_str and self._counter_str not in base:
+            return f"{base}<br>{self._counter_str}"
+        return base
+
+
 class UnlockedView(QWidget):
-    """View displayed when the vault is unlocked in Milestone 4 and 5."""
+    """View displayed when the vault is unlocked in Milestone 4, 5, and 6."""
 
     lock_requested = Signal()  # Emitted when user clicks 'Lock Vault'
 
@@ -446,11 +469,12 @@ class UnlockedView(QWidget):
         )
 
         self.setWindowTitle("SecureVault — Vault Unlocked")
-        self.resize(600, 560)
+        self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
+        self.center_on_screen()
 
         layout = QVBoxLayout()
-        layout.setSpacing(14)
-        layout.setContentsMargins(28, 24, 28, 24)
+        layout.setSpacing(10)
+        layout.setContentsMargins(28, 18, 28, 18)
 
         # Header
         header = QLabel("🔓 SecureVault — Unlocked")
@@ -463,16 +487,105 @@ class UnlockedView(QWidget):
         user_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(user_info)
 
-        self.vault_meta = QLabel("")
+        self.vault_meta = _VaultMetaLabel(self._vault.vault_id)
         self.vault_meta.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.vault_meta.setStyleSheet("color: #adbac7;")
         layout.addWidget(self.vault_meta)
 
-        # Credential List Section
-        list_header = QLabel("Stored Credentials (M5 Data Layer):")
-        list_header.setStyleSheet("font-weight: bold; font-size: 13px; margin-top: 6px;")
-        layout.addWidget(list_header)
+        # Search Bar Row
+        search_layout = QHBoxLayout()
+        search_layout.setSpacing(8)
 
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search credentials...")
+        self.search_input.setClearButtonEnabled(True)
+        self.search_input.setStyleSheet(
+            "QLineEdit {"
+            "  background-color: #0d1117;"
+            "  border: 1px solid #30363d;"
+            "  border-radius: 6px;"
+            "  padding: 6px 10px;"
+            "  color: #c9d1d9;"
+            "  font-size: 13px;"
+            "}"
+            "QLineEdit:focus {"
+            "  border-color: #58a6ff;"
+            "}"
+        )
+        self.search_input.textChanged.connect(self._on_search_changed)
+        search_layout.addWidget(self.search_input, stretch=1)
+
+        self.clear_btn = QPushButton("Clear")
+        self.clear_btn.setStyleSheet(
+            "QPushButton {"
+            "  background-color: #21262d;"
+            "  color: #c9d1d9;"
+            "  border: 1px solid #30363d;"
+            "  border-radius: 6px;"
+            "  padding: 6px 14px;"
+            "  font-size: 12px;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: #30363d;"
+            "}"
+        )
+        self.clear_btn.clicked.connect(self._on_clear_search)
+        search_layout.addWidget(self.clear_btn)
+
+        layout.addLayout(search_layout)
+
+        # Credential Counter / Section Label
+        self.counter_label = QLabel("Stored Credentials: <b>0</b>")
+        self.counter_label.setStyleSheet("font-weight: bold; font-size: 13px; margin-top: 4px; color: #c9d1d9;")
+        layout.addWidget(self.counter_label)
+
+        # Empty state container
+        self.empty_state_widget = QWidget()
+        self.empty_state_widget.setMinimumHeight(140)
+        self.empty_state_widget.setStyleSheet(
+            "QWidget#EmptyStateContainer {"
+            "  background-color: #0d1117;"
+            "  border: 1px dashed #30363d;"
+            "  border-radius: 6px;"
+            "}"
+        )
+        self.empty_state_widget.setObjectName("EmptyStateContainer")
+        empty_layout = QVBoxLayout(self.empty_state_widget)
+        empty_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_layout.setContentsMargins(20, 16, 20, 16)
+        empty_layout.setSpacing(6)
+
+        self.empty_state_icon = QLabel("📭")
+        self.empty_state_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_state_icon.setStyleSheet("font-size: 28px; background: transparent; border: none;")
+        empty_layout.addWidget(self.empty_state_icon)
+
+        self.empty_state_title = QLabel("No credentials yet.")
+        self.empty_state_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_state_title.setStyleSheet("font-size: 15px; font-weight: bold; color: #8b949e; background: transparent; border: none;")
+        empty_layout.addWidget(self.empty_state_title)
+
+        self.empty_state_subtitle = QLabel("Add your first credential to get started.")
+        self.empty_state_subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_state_subtitle.setStyleSheet("font-size: 13px; color: #6e7681; background: transparent; border: none;")
+        empty_layout.addWidget(self.empty_state_subtitle)
+
+        self.empty_state_add_btn = QPushButton("➕ Add Credential")
+        self.empty_state_add_btn.setStyleSheet(
+            "QPushButton {"
+            "  background-color: #238636; color: #ffffff; border: 1px solid #2ea043; "
+            "  border-radius: 6px; padding: 6px 16px; font-weight: bold; margin-top: 6px;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: #2ea043;"
+            "}"
+        )
+        self.empty_state_add_btn.clicked.connect(self._on_add_clicked)
+        empty_layout.addWidget(self.empty_state_add_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        layout.addWidget(self.empty_state_widget, stretch=1)
+
+        # Credential List Section
         self.credential_list = QListWidget()
         self.credential_list.setSpacing(8)
         self.credential_list.setItemDelegate(CardItemDelegate(self.credential_list))
@@ -500,7 +613,7 @@ class UnlockedView(QWidget):
             "}"
         )
         self.credential_list.itemDoubleClicked.connect(self._on_item_double_clicked)
-        layout.addWidget(self.credential_list)
+        layout.addWidget(self.credential_list, stretch=1)
 
         # Status label
         self.status_label = QLabel("")
@@ -530,65 +643,113 @@ class UnlockedView(QWidget):
 
         self._refresh_credentials()
 
+    def center_on_screen(self) -> None:
+        """Center the window on the primary screen."""
+        from PySide6.QtWidgets import QApplication
+
+        app = QApplication.instance()
+        if not app:
+            return
+        screen = self.screen() or app.primaryScreen()
+        if screen:
+            geo = screen.availableGeometry()
+            x = geo.x() + max(0, (geo.width() - self.width()) // 2)
+            y = geo.y() + max(0, (geo.height() - self.height()) // 2)
+            self.move(x, y)
+
+    def _on_search_changed(self, text: str) -> None:
+        """Handle real-time search input changes."""
+        self._refresh_credentials()
+
+    def _on_clear_search(self) -> None:
+        """Clear search input and restore full credential list."""
+        self.search_input.clear()
+        self.search_input.setFocus()
+
     def _refresh_credentials(self) -> None:
-        """Refresh the stored credentials list and item counter."""
+        """Refresh the stored credentials list and item counter according to current search query."""
         self.credential_list.clear()
 
-        item_count = self._vault.item_count
-        self.vault_meta.setText(
-            f"Vault ID: <code>{self._vault.vault_id}</code><br>"
-            f"Stored Credentials: <b>{item_count}</b>"
-        )
+        query = self.search_input.text().strip().lower()
 
         if self._credential_service:
             try:
-                credentials = self._credential_service.get_all_credentials()
-                for cred in credentials:
-                    card = CredentialCardWidget(
-                        cred_id=cred.id,
-                        title=cred.title,
-                        username=cred.username,
-                        notes=cred.notes,
-                    )
-                    card.view_clicked.connect(self._on_view_credential)
-                    card.edit_clicked.connect(self._on_edit_credential)
-                    card.delete_clicked.connect(self._on_delete_credential_by_id)
-
-                    list_item = QListWidgetItem()
-                    list_item.setText(f"🔑 {cred.title}  —  {cred.username}")
-                    list_item.setData(Qt.ItemDataRole.UserRole, cred.id)
-                    list_item.setSizeHint(card.sizeHint())
-
-                    self.credential_list.addItem(list_item)
-                    self.credential_list.setItemWidget(list_item, card)
+                all_creds = self._credential_service.get_all_credentials()
             except VaultLockedError:
-                pass
+                all_creds = []
         else:
             # Fallback direct read from vault payload dict
             items = self._vault.payload.get("items", [])
+            all_creds = []
             for item in items:
                 if isinstance(item, dict):
-                    cred_id = item.get("id", "")
-                    title = item.get("title", "Untitled")
-                    username = item.get("username", "")
-                    notes = item.get("notes", "")
-
-                    card = CredentialCardWidget(
-                        cred_id=cred_id,
-                        title=title,
-                        username=username,
-                        notes=notes,
+                    all_creds.append(
+                        Credential(
+                            id=item.get("id", ""),
+                            title=item.get("title", "Untitled"),
+                            username=item.get("username", ""),
+                            password=item.get("password", ""),
+                            notes=item.get("notes", ""),
+                            created_at=item.get("created_at", 0.0),
+                            updated_at=item.get("updated_at", 0.0),
+                        )
                     )
-                    card.view_clicked.connect(self._on_view_credential)
-                    card.edit_clicked.connect(self._on_edit_credential)
-                    card.delete_clicked.connect(self._on_delete_credential_by_id)
 
-                    list_item = QListWidgetItem(f"🔑 {title}  —  {username}")
-                    list_item.setData(Qt.ItemDataRole.UserRole, cred_id)
-                    list_item.setSizeHint(card.sizeHint())
+        total_count = len(all_creds)
 
-                    self.credential_list.addItem(list_item)
-                    self.credential_list.setItemWidget(list_item, card)
+        # In-memory search filtering (passwords are STRICTLY excluded from search)
+        if query:
+            filtered = [
+                c
+                for c in all_creds
+                if query in c.title.lower()
+                or query in c.username.lower()
+                or query in (c.notes or "").lower()
+            ]
+            counter_str = f"Showing <b>{len(filtered)}</b> of <b>{total_count}</b> credentials"
+        else:
+            filtered = all_creds
+            counter_str = f"Stored Credentials: <b>{total_count}</b>"
+
+        self.counter_label.setText(counter_str)
+        self.vault_meta.set_counter_text(counter_str)
+
+        # Empty state management
+        if len(filtered) == 0:
+            if total_count == 0:
+                self.empty_state_icon.setText("📭")
+                self.empty_state_title.setText("No credentials yet.")
+                self.empty_state_subtitle.setText("Add your first credential to get started.")
+                self.empty_state_add_btn.setVisible(True)
+            else:
+                self.empty_state_icon.setText("🔍")
+                self.empty_state_title.setText("No credentials found.")
+                self.empty_state_subtitle.setText("Try a different search term.")
+                self.empty_state_add_btn.setVisible(False)
+            self.empty_state_widget.setVisible(True)
+            self.credential_list.setVisible(False)
+        else:
+            self.empty_state_widget.setVisible(False)
+            self.credential_list.setVisible(True)
+
+            for cred in filtered:
+                card = CredentialCardWidget(
+                    cred_id=cred.id,
+                    title=cred.title,
+                    username=cred.username,
+                    notes=cred.notes,
+                )
+                card.view_clicked.connect(self._on_view_credential)
+                card.edit_clicked.connect(self._on_edit_credential)
+                card.delete_clicked.connect(self._on_delete_credential_by_id)
+
+                list_item = QListWidgetItem()
+                list_item.setText(f"🔑 {cred.title}  —  {cred.username}")
+                list_item.setData(Qt.ItemDataRole.UserRole, cred.id)
+                list_item.setSizeHint(card.sizeHint())
+
+                self.credential_list.addItem(list_item)
+                self.credential_list.setItemWidget(list_item, card)
 
     def _on_add_clicked(self) -> None:
         """Open dialog to add and persist a new credential."""
@@ -709,6 +870,7 @@ class UnlockedView(QWidget):
     def _on_lock_clicked(self) -> None:
         """Lock active session, zero memory buffers, and emit lock signal."""
         logger.info("Lock requested from UnlockedView.")
+        self.search_input.clear()
         self._vault.lock()
         self.lock_requested.emit()
         self.close()

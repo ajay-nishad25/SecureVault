@@ -9,9 +9,9 @@ Coordinates application UI transitions based on initialization and session state
 from __future__ import annotations
 
 import sys
-from PySide6.QtWidgets import QApplication, QDialog
+from PySide6.QtWidgets import QApplication, QDialog, QWidget
 
-from app.core.config import AppConfig
+from app.core.config import AppConfig, WINDOW_HEIGHT, WINDOW_WIDTH
 from app.core.logging import get_logger
 from app.services.authentication import AuthenticationService
 from app.services.initialization import InitializationService
@@ -21,6 +21,19 @@ from app.ui.setup.wizard import SetupWizard
 from app.ui.unlocked_view import UnlockedView
 
 logger = get_logger("ui.app_window")
+
+
+def center_window(widget: QWidget) -> None:
+    """Center a top-level window on the available primary screen."""
+    app = QApplication.instance()
+    if not app:
+        return
+    screen = widget.screen() or app.primaryScreen()
+    if screen:
+        geo = screen.availableGeometry()
+        x = geo.x() + max(0, (geo.width() - widget.width()) // 2)
+        y = geo.y() + max(0, (geo.height() - widget.height()) // 2)
+        widget.move(x, y)
 
 
 class ApplicationController:
@@ -58,6 +71,7 @@ class ApplicationController:
             vault_service=self.vault_service,
         )
         self.current_window = wizard
+        center_window(wizard)
 
         result = wizard.exec()
         if result == QDialog.DialogCode.Accepted and wizard.is_setup_successful():
@@ -79,6 +93,7 @@ class ApplicationController:
         # Wire signals
         locked_view.reset_requested.connect(self._on_dev_reset)
         locked_view.vault_unlocked.connect(self._on_vault_unlocked)
+        center_window(locked_view)
         locked_view.show()
         return 0
 
@@ -96,6 +111,7 @@ class ApplicationController:
 
         # Wire lock action back to locked state
         unlocked_view.lock_requested.connect(self._on_vault_locked)
+        center_window(unlocked_view)
         unlocked_view.show()
         return 0
 

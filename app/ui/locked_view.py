@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.core.config import WINDOW_HEIGHT, WINDOW_WIDTH
 from app.core.exceptions import (
     AuthenticationError,
     CorruptedVaultError,
@@ -109,11 +110,12 @@ class LockedView(QWidget):
         self._worker: AuthWorker | None = None
 
         self.setWindowTitle("SecureVault — Vault Locked")
-        self.resize(520, 430)
+        self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
+        self.center_on_screen()
 
         layout = QVBoxLayout()
         layout.setSpacing(14)
-        layout.setContentsMargins(32, 28, 32, 28)
+        layout.setContentsMargins(48, 28, 48, 28)
 
         # Header with lock icon
         header = QLabel("🔒 SecureVault — Locked")
@@ -187,6 +189,20 @@ class LockedView(QWidget):
 
         layout.addLayout(btn_layout)
         self.setLayout(layout)
+
+    def center_on_screen(self) -> None:
+        """Center the window on the primary screen."""
+        from PySide6.QtWidgets import QApplication
+
+        app = QApplication.instance()
+        if not app:
+            return
+        screen = self.screen() or app.primaryScreen()
+        if screen:
+            geo = screen.availableGeometry()
+            x = geo.x() + max(0, (geo.width() - self.width()) // 2)
+            y = geo.y() + max(0, (geo.height() - self.height()) // 2)
+            self.move(x, y)
 
     def _toggle_password_visibility(self, checked: bool) -> None:
         mode = QLineEdit.EchoMode.Normal if checked else QLineEdit.EchoMode.Password

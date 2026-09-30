@@ -73,13 +73,17 @@ Each milestone is discrete, testable, and gated by defined completion criteria.
   - Dirty state tracking and serialization hooks.
 - **Dependencies**: M4.
 
-### M6 — Main Vault UI + Search
-- **Objective**: Construct the primary two-column operational dashboard in PySide6 (`UNLOCKED` state).
+### M6 — Main Vault UI + Search (Completed)
+- **Objective**: Implement the primary unlocked vault dashboard with credential search and browsing.
 - **Key Deliverables**:
-  - Top navigation bar with status indicator and action buttons.
-  - Left master list with real-time text search filter (`Ctrl+F`) and category pills.
-  - Right detail pane displaying credential fields with mask/reveal toggles.
-  - Add/Edit modal dialogs with input validation.
+  - Main vault layout with profile information, vault ID, and consistent SecureVault styling.
+  - Search bar (`QLineEdit`) with clear action and live in-memory search filtering.
+  - Case-insensitive substring matching against `title`, `username`, and `notes`.
+  - Strict security boundary: `password` field is strictly non-searchable.
+  - Dynamic credential counter (`Stored Credentials: X` / `Showing X of Y credentials`).
+  - Useful empty states for empty vault and no-search-results conditions.
+  - Preservation of credential identity across filtered View, Edit, and Delete actions.
+  - Delete confirmation modal preservation and smooth pixel scrolling.
 - **Dependencies**: M5.
 
 ### M7 — Session & Auto-Lock
