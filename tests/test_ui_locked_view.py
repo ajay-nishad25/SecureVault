@@ -5,11 +5,13 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 import pytest
-from PySide6.QtWidgets import QApplication, QDialog
+from PySide6.QtWidgets import QApplication, QLineEdit
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 from app.core.config import AppConfig
+from app.crypto.kdf import KDFParameters
+from app.services.authentication import AuthenticationService
 from app.services.initialization import InitializationService
 from app.ui.app_window import ApplicationController
 from app.ui.locked_view import LockedView
@@ -31,6 +33,12 @@ def isolated_init_service(tmp_path: Path) -> InitializationService:
     return InitializationService(config)
 
 
+@pytest.fixture
+def fast_auth_service() -> AuthenticationService:
+    """Provide an AuthenticationService with fast test parameters."""
+    return AuthenticationService(kdf_parameters=KDFParameters.fast_for_testing())
+
+
 def test_locked_view_displays_login_id(
     qapp: QApplication, isolated_init_service: InitializationService
 ) -> None:
@@ -38,8 +46,65 @@ def test_locked_view_displays_login_id(
     isolated_init_service.initialize("test_locked_user")
     view = LockedView(init_service=isolated_init_service)
 
-    assert "test_locked_user" in view.findChild(object, "").text() if False else True
     assert isolated_init_service.get_login_id() == "test_locked_user"
+
+
+def test_locked_view_password_visibility_toggle(
+    qapp: QApplication, isolated_init_service: InitializationService
+) -> None:
+    """Verify password visibility toggle button changes echo mode."""
+    view = LockedView(init_service=isolated_init_service)
+    assert view.password_input.echoMode() == QLineEdit.EchoMode.Password
+
+    view.show_password_cb.setChecked(True)
+    assert view.password_input.echoMode() == QLineEdit.EchoMode.Normal
+
+    view.show_password_cb.setChecked(False)
+    assert view.password_input.echoMode() == QLineEdit.EchoMode.Password
+
+
+def test_locked_view_unlock_empty_password_shows_error(
+    qapp: QApplication, isolated_init_service: InitializationService
+) -> None:
+    """Verify clicking unlock with empty password shows validation error."""
+    view = LockedView(init_service=isolated_init_service)
+    view.password_input.setText("")
+
+    view._on_unlock_clicked()
+
+    assert "cannot be empty" in view.status_label.text()
+
+
+def test_locked_view_unlock_derives_kek(
+    qapp: QApplication,
+    isolated_init_service: InitializationService,
+    fast_auth_service: AuthenticationService,
+) -> None:
+    """Verify entering password in LockedView triggers KEK derivation and emits signal."""
+    view = LockedView(
+        init_service=isolated_init_service,
+        auth_service=fast_auth_service,
+    )
+    view.password_input.setText("ValidPassword123!")
+
+    auth_results = []
+    view.authenticated.connect(auth_results.append)
+
+    # Trigger unlock
+    view._on_unlock_clicked()
+
+    # Wait for background worker thread to finish
+    if view._worker:
+        view._worker.wait(2000)
+
+    # Process events to deliver signal
+    qapp.processEvents()
+
+    assert len(auth_results) == 1
+    assert auth_results[0].success is True
+    assert "Master KEK derived successfully" in view.status_label.text()
+    # Ensure input field was cleared
+    assert view.password_input.text() == ""
 
 
 def test_locked_view_reset_emits_signal_and_clears_state(

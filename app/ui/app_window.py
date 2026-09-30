@@ -12,7 +12,8 @@ from PySide6.QtWidgets import QApplication, QDialog
 
 from app.core.config import AppConfig
 from app.core.logging import get_logger
-from app.services.initialization import InitializationService, SessionState
+from app.services.authentication import AuthenticationService
+from app.services.initialization import InitializationService
 from app.ui.locked_view import LockedView
 from app.ui.setup.wizard import SetupWizard
 
@@ -26,9 +27,11 @@ class ApplicationController:
         self,
         config: AppConfig | None = None,
         init_service: InitializationService | None = None,
+        auth_service: AuthenticationService | None = None,
     ) -> None:
         self.config = config or AppConfig()
         self.init_service = init_service or InitializationService(self.config)
+        self.auth_service = auth_service or AuthenticationService()
         self.current_window = None
 
     def start(self) -> int:
@@ -57,7 +60,10 @@ class ApplicationController:
         return 0
 
     def _show_locked_view(self) -> int:
-        locked_view = LockedView(init_service=self.init_service)
+        locked_view = LockedView(
+            init_service=self.init_service,
+            auth_service=self.auth_service,
+        )
         self.current_window = locked_view
 
         # Wire reset signal to relaunch wizard
@@ -70,7 +76,10 @@ class ApplicationController:
         self._launch_setup_wizard()
 
 
-def run_gui(config: AppConfig | None = None) -> int:
+def run_gui(
+    config: AppConfig | None = None,
+    auth_service: AuthenticationService | None = None,
+) -> int:
     """Launch the PySide6 desktop GUI application.
 
     Returns:
@@ -83,7 +92,7 @@ def run_gui(config: AppConfig | None = None) -> int:
     app.setApplicationName("SecureVault")
     app.setApplicationDisplayName("SecureVault")
 
-    controller = ApplicationController(config)
+    controller = ApplicationController(config=config, auth_service=auth_service)
     controller.start()
 
     # If a window is currently visible, start event loop

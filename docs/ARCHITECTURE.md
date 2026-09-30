@@ -70,15 +70,27 @@ SecureVault is built on five core architectural principles:
   - The UI layer does **not** perform cryptographic operations, file system reads/writes, or direct credential serialization.
   - It interfaces solely with the `AuthenticationLayer`, `SessionManager`, `VaultManager`, `ClipboardManager`, and `SettingsManager`.
 
-### 3.2 Authentication Layer (`app.core.auth`)
+### 3.2 Authentication Service (`app.services.authentication`)
 - **Responsibilities**:
-  - Validate master password complexity rules during initial setup and password change.
-  - Coordinate with the Cryptography Layer to derive the Key Encryption Key (KEK) from the user-entered master password.
-  - Attempt decryption of the vault's Data Encryption Key (DEK).
-  - Return clear success or failure results to the GUI without disclosing why authentication failed (preventing timing or oracle leaks).
+  - Provide a clean boundary between UI and cryptographic operations:
+    ```text
+    UI (LockedView)
+          ↓ (AuthWorker QThread)
+    AuthenticationService
+          ↓
+    Argon2id KDF (app.crypto.kdf)
+          ↓
+    32-byte KEK (Key Encryption Key)
+    ```
+  - Validate master password complexity rules and input constraints prior to invoking KDF.
+  - Coordinate with the Cryptography Layer (`app.crypto.kdf`) to derive the 32-byte Key Encryption Key (KEK) using Argon2id and the vault's salt.
+  - Manage in-memory KEK retention and provide `clear_session()` with best-effort zeroing of mutable key buffers.
+  - Coordinate with M4 to attempt AES-256-GCM decryption of the vault's Data Encryption Key (DEK).
+  - Return clear, sanitized `AuthenticationResult` structures to the GUI without disclosing internal exceptions, timing, or oracle leaks.
 - **Boundaries**:
-  - Does not manage UI dialogs.
-  - Does not retain the master password once key derivation completes.
+  - Does not manage PySide6 widgets or UI dialogs directly.
+  - Operates purely in-memory; maintains **Zero-Verifier Architecture** (never writes password hashes or verifiers to disk; see ADR-012).
+  - Executes long-running Argon2id KDF operations off the main Qt event loop via `AuthWorker(QThread)` in the UI layer to maintain desktop UI responsiveness.
 
 ### 3.3 Session Manager (`app.core.session`)
 - **Responsibilities**:

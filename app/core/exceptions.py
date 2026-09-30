@@ -1,8 +1,6 @@
 """SecureVault — Core Exception Hierarchy.
 
-Defines the foundational application exceptions. Specialized errors
-(such as AuthenticationError or StorageCorruptionError) inherit from
-these base classes in subsequent milestones.
+Defines the foundational and domain-specific application exceptions.
 """
 
 
@@ -29,5 +27,21 @@ class SecurityError(SecureVaultError):
     """Raised when a security boundary, policy, or session constraint is violated."""
 
 
+class AuthenticationError(SecurityError):
+    """Raised when master authentication fails or cannot be completed."""
+
+
+class InvalidKDFParametersError(SecurityError):
+    """Raised when Argon2id KDF parameters fail bounds or type validation."""
+
+
+class InvalidSaltError(SecurityError):
+    """Raised when a cryptographic salt fails length or validity checks."""
+
+
+class InvalidPasswordInputError(SecurityError):
+    """Raised when password input fails length, format, or validity checks."""
+
+
 class ValidationError(SecureVaultError):
-    """Raised when input validation fails."""
+    """Raised when general input validation fails."""

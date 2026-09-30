@@ -12,8 +12,8 @@ SecureVault is an open-source, completely offline, zero-cloud desktop password m
 ## 2. Technology Stack & Platform
 - **Language**: Python 3.11+ (Runtime: Python 3.11.4 in `.venv/`)
 - **GUI Framework**: PySide6 (Qt 6 for Python)
-- **Cryptography**: `cryptography` (AES-256-GCM AEAD), `argon2-cffi` (Argon2id KDF), standard `secrets` CSPRNG (wired in M3/M4)
-- **Testing**: `pytest` (79 passing tests)
+- **Cryptography**: `argon2-cffi` (Argon2id KDF), standard `secrets` CSPRNG, `cryptography` (AES-256-GCM AEAD for M4)
+- **Testing**: `pytest` (108 passing tests)
 - **Platform**: Windows 10/11 64-bit first (`%LOCALAPPDATA%\SecureVault\`); portable design for Linux.
 
 ---
@@ -24,16 +24,16 @@ SecureVault/
 ├── app/
 │   ├── __init__.py       # Central version definition (__version__ = "0.1.0")
 │   ├── core/             # AppConfig, Safe Logging, Domain Exceptions, Validation
-│   ├── crypto/           # Cryptographic primitives boundary (M3/M4)
+│   ├── crypto/           # Argon2id KDF (kdf.py) & AES-GCM primitives boundary (M4)
 │   ├── storage/          # Binary envelope & atomic file persistence boundary (M4)
-│   ├── services/         # InitializationService, Clipboard watchdog (M10), Auto-lock (M7)
+│   ├── services/         # AuthenticationService, InitializationService, Clipboard watchdog (M10), Auto-lock (M7)
 │   ├── models/           # CredentialItem & VaultPayload domain models (M5)
-│   └── ui/               # ApplicationController, LockedView, SetupWizard
+│   └── ui/               # ApplicationController, LockedView (with AuthWorker), SetupWizard
 │       └── setup/        # Multi-step QWizard onboarding pages
-├── tests/                # Pytest unit & integration test suites (79 tests)
+├── tests/                # Pytest unit & integration test suites (108 tests)
 ├── docs/                 # Architectural, security, and design specifications
 ├── main.py               # Application entry point (GUI launch + headless flags)
-├── requirements.txt      # Runtime dependencies (PySide6)
+├── requirements.txt      # Runtime dependencies (PySide6, argon2-cffi)
 ├── requirements-dev.txt  # Dev/test dependencies (pytest)
 ├── pyproject.toml        # Package metadata & pytest configuration
 └── README.md             # Developer setup, principles, and roadmap
@@ -42,9 +42,17 @@ SecureVault/
 ---
 
 ## 4. Milestone Status
-- **Current Milestone**: `M2 — First-Run Setup Wizard` (Implementation Complete / Ready for Review).
-- **Next Milestone**: `M3 — Master Authentication`.
-- *Do not begin M3 or implement cryptographic authentication without user instruction.*
+- **Completed Milestones**:
+  - `M0 — Architecture & Security Design` (Complete)
+  - `M1 — Project Skeleton & Development Foundation` (Complete)
+  - `M2 — First-Run Setup Wizard` (Complete)
+  - `M3 — Master Authentication Foundation` (Complete / Ready for Review)
+- **Current / Next Milestone**: `M4 — Cryptographic Vault`
+- **Location of M3 Auth Implementation**:
+  - `app/crypto/kdf.py`: Argon2id KDF, `KDFParameters`, `derive_kek()`, `generate_salt()`.
+  - `app/services/authentication.py`: `AuthenticationService`, session management, zeroing.
+  - `app/ui/locked_view.py`: `LockedView` with `AuthWorker(QThread)` non-blocking derivation.
+- *Do not begin M4 or implement AES-GCM vault encryption without user instruction.*
 
 ---
 

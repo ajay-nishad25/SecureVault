@@ -69,12 +69,34 @@ SecureVault utilizes a two-tier key hierarchy:
 
 SecureVault specifies **Argon2id** (RFC 9106), combining Argon2d (resistance against GPU/ASIC acceleration via memory-hardness) and Argon2i (resistance against side-channel cache timing attacks).
 
-### Parameter Specifications:
-- **Type**: `Argon2id` (hybrid mode).
+Implemented in `app/crypto/kdf.py` via `argon2-cffi` (`argon2.low_level.hash_secret_raw(..., type=Type.ID)`).
+
+### Production Parameter Specifications:
+- **Type**: `Argon2id` (RFC 9106, hybrid mode).
 - **Memory Cost (`m`)**: `65,536 KiB` (64 MiB). Requires dedicated RAM per guess, significantly increasing memory cost and substantially impeding parallel attack throughput on GPUs and ASICs.
 - **Time Cost (`t`)**: `3` iterations. Provides adequate computation hardness while maintaining unlock latency under ~0.5 seconds on modern desktop CPUs.
 - **Parallelism (`p`)**: `4` lanes. Exploits multi-core desktop architectures.
-- **Salt**: 16 bytes generated via `secrets.token_bytes(16)`. Guarantees uniqueness and renders pre-computed rainbow tables ineffective.
+- **Salt Length**: 16 bytes generated via `secrets.token_bytes(16)`. Guarantees uniqueness and renders pre-computed rainbow tables ineffective.
+- **Derived Key Length**: Exactly 32 bytes (256-bit KEK).
+
+### Fast Test Parameters vs. Production Defaults
+To maintain lightning-fast test execution while never weakening production security:
+- `KDFParameters.fast_for_testing()` provides reduced parameters (`m=1024 KiB, t=1, p=1`) strictly for unit tests.
+- Production instantiations (`KDFParameters()`) enforce full M0 parameters (`m=65536 KiB, t=3, p=4`) by default.
+- Test suites explicitly verify both the fast testing parameters and the full production parameters.
+
+### Core API Signatures (`app/crypto/kdf.py`):
+```python
+def generate_salt(length: int = 16) -> bytes:
+    ...
+
+def derive_kek(
+    password: str | bytes,
+    salt: bytes,
+    parameters: KDFParameters | None = None,
+) -> bytes:
+    ...
+```
 
 ---
 

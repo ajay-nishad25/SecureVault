@@ -68,3 +68,5 @@ venv.bak/
 *.svault
 *.svault.tmp
 settings.json
+init_state.json
+

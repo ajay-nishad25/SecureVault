@@ -69,9 +69,31 @@ SecureVault's testing architecture enforces high-reliability standards appropria
   - Verifies that wizard cancellation (`reject()`) leaves the application uninitialized.
   - Verifies that wizard completion (`accept()`) persists valid state, emits completion signals, and clears password fields.
 
-### 2.6 View Controller & Flow Integration Tests
-- `tests/test_ui_locked_view.py`:
+### 2.6 Key Derivation Function (KDF) Tests (M3)
+- `tests/test_kdf.py` (19 tests):
+  - **Salt Generation**: Verifies 16-byte length, non-constant random output across calls, and rejection of invalid salt lengths.
+  - **KDF Parameter Validation**: Validates `KDFParameters` constructor enforcement (positive memory, time, parallelism, hash length, salt length) and rejection of invalid values.
+  - **Key Derivation Correctness**: Verifies output is exactly 32 bytes (256-bit KEK).
+  - **Determinism**: Verifies `derive_kek(P, S, params) == derive_kek(P, S, params)`.
+  - **Input Sensitivity**: Verifies that different passwords, different salts, or different parameters produce distinct 32-byte keys.
+  - **Input Validation**: Verifies rejection of empty passwords (str and bytes) and malformed salt lengths (`InvalidPasswordInputError`, `InvalidSaltError`).
+  - **Production Parameter Execution**: Executes real M0 production parameters (`m=65536 KiB, t=3, p=4`) to verify compatibility and timing.
+
+### 2.7 Authentication Service Tests (M3)
+- `tests/test_authentication_service.py` (7 tests):
+  - **Lifecycle**: Verifies initialization with default or custom salt and KDF parameters.
+  - **Key Derivation Flow**: Verifies `authenticate(password)` returns `AuthenticationResult(success=True)` with 32-byte KEK.
+  - **Session Management**: Verifies `active_kek` retention and in-place zeroing upon `clear_session()`.
+  - **Input Validation**: Verifies error handling and clean `AuthenticationResult(success=False)` on empty passwords or parameter violations.
+  - **No Secret Logging**: Uses `caplog` to assert that master password and raw KEK hex are NEVER emitted to application logs.
+
+### 2.8 View Controller & UI Integration Tests
+- `tests/test_ui_locked_view.py` (7 tests):
   - Verifies `LockedView` displays active `Login ID`.
+  - Verifies password visibility toggle (Password <-> Normal echo mode).
+  - Verifies empty password submission displays validation error without calling worker.
+  - Verifies `AuthWorker(QThread)` executes KDF derivation off main thread, emits `unlock_successful`, and passes derived KEK.
+  - Verifies failed derivation emits `unlock_failed` and displays user-friendly error.
   - Verifies that clicking `Reset Setup (Dev)` emits `reset_requested` and cleans up state.
   - Verifies `ApplicationController` routes uninitialized state to wizard and initialized state to locked view.
 - `tests/test_flow.py`:
@@ -81,7 +103,6 @@ SecureVault's testing architecture enforces high-reliability standards appropria
 
 ## 3. Future Test Suites (Scheduled per Roadmap)
 
-- **M3 (Master Authentication)**: Argon2id KDF derivation, constant-time comparison, invalid password handling.
 - **M4 (Cryptographic Vault)**: AES-256-GCM AEAD round-trip, AAD binding, 134-byte fixed header packing, atomic replace, bit-flip tamper detection.
 - **M5 (Credential CRUD)**: In-memory credential CRUD, search/filtering, JSON schema serialization.
 - **M7 (Session & Auto-Lock)**: 10-minute inactivity timer expiration, activity event reset, lock memory purging.
@@ -96,4 +117,4 @@ All tests are executed using pytest:
 # Run full test suite
 .venv\Scripts\pytest.exe -v
 ```
-*Current test status: 79 passed, 0 failed.*
+*Current test status: 108 passed, 0 failed.*

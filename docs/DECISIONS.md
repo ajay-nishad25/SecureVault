@@ -117,3 +117,22 @@ Each record details the context, decision, and consequences.
 - **Consequences**:
   - *Positive*: Eliminates accidental credential exposure in config files (`settings.json`) or terminal logs.
   - *Trade-off*: Developers must inspect redacted values in debuggers rather than dumping raw credential strings to console logs.
+
+---
+
+## ADR-012: Zero-Verifier / KEK-Only Master Authentication
+- **Status**: Accepted (Milestone M3)
+- **Context**: Traditional web and desktop applications often authenticate users by comparing the hash of an entered password against a stored password hash or authentication verifier file (e.g., `auth.json`, `password_hash.txt`, or shadow file). In an encrypted local vault architecture, storing a dedicated password verifier on disk introduces significant security risks:
+  1. An adversary who gains local disk access can launch high-speed offline dictionary or brute-force attacks directly against the stored verifier without attempting cryptographic vault decryption.
+  2. Verifier databases create an unnecessary persistent target and risk desynchronization between the "authentication" password and the "vault encryption" key.
+- **Decision**:
+  1. SecureVault strictly adheres to a **Zero-Verifier Architecture**. No password hash, salt-hash pair, password verifier, or persistent authentication credential file is ever written to disk.
+  2. Master authentication is established purely through cryptographic key derivation:
+     ```text
+     Master Password + Salt -> Argon2id -> 32-byte KEK
+     ```
+  3. In M3, authentication success is verified by the mathematical derivation of the 32-byte KEK from valid inputs.
+  4. In M4 and beyond, authentication validity is verified implicitly and solely by attempting to unwrap (AES-256-GCM decrypt) the Data Encryption Key (DEK) from the vault file header. If the master password is incorrect, the derived KEK differs and AES-GCM authentication tag verification fails, returning an indistinguishable error.
+- **Consequences**:
+  - *Positive*: An attacker with access to the vault file has only the ciphertext and wrapped DEK to target; there is zero separate verifier artifact to attack. Eliminates credential desynchronization.
+  - *Trade-off*: Authentication cannot be verified without performing the full Argon2id key derivation and attempting cryptographic unwrapping against the vault header.

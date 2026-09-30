@@ -6,9 +6,9 @@
 
 ## Current Status
 
-- **Current Milestone**: `M2 — First-Run Setup Wizard` (Complete / Ready for Review)
+- **Current Milestone**: `M3 — Master Authentication` (Complete / Ready for Review)
 - **Active Version**: `0.1.0`
-- **Application State**: The multi-step First-Run Setup Wizard, input validation rules, no-recovery acknowledgement gating, and post-setup locked state transitions are fully implemented and verified. Real cryptographic key derivation and vault encryption will be activated in Milestones M3 and M4.
+- **Application State**: The multi-step First-Run Setup Wizard, input validation rules, and Argon2id Master Key Derivation (`Master Password + Salt -> Argon2id -> 32-byte KEK`) are fully implemented and verified with non-blocking UI integration. The full encrypted `.svault` file and AES-256-GCM vault encryption remain deferred to Milestone M4.
 
 ---
 
@@ -16,8 +16,8 @@
 
 - **Language**: Python 3.11+ (Tested on Python 3.11.4)
 - **GUI Toolkit**: PySide6 (Qt 6 for Python)
-- **Cryptographic Libraries**: `cryptography`, `argon2-cffi` (scheduled for M3/M4)
-- **Test Runner**: `pytest` (79 passing tests)
+- **Cryptographic Libraries**: `argon2-cffi` (Argon2id KDF), standard `secrets` CSPRNG, `cryptography` (AES-256-GCM AEAD for M4)
+- **Test Runner**: `pytest` (108 passing tests)
 - **Target Platform**: Windows 10/11 (with cross-platform architecture targeting Linux in post-v1)
 
 ---
@@ -66,7 +66,7 @@ python main.py --version
 
 ### 5. Run the Test Suite
 ```powershell
-# Run all 79 unit and GUI integration tests
+# Run all 108 unit and GUI integration tests
 pytest
 
 # Run tests with verbose output
