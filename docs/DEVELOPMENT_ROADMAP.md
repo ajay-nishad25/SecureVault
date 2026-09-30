@@ -108,11 +108,11 @@ Each milestone is discrete, testable, and gated by defined completion criteria.
   - Visual password strength estimator.
 - **Dependencies**: M8.
 
-### M10 — CSV Export + Clipboard Security
-- **Objective**: Implement safe credential copying with auto-clear watchdog and plaintext CSV export with warning flow.
+### M10 — Clipboard Security & Auto-Clear
+- **Objective**: Implement safe credential copying with auto-clear watchdog.
 - **Key Deliverables**:
   - `ClipboardManager` copying values with temporary UI feedback and 30-second watchdog auto-clear.
-  - CSV export dialog with mandatory plaintext warning, master password re-authentication, and format generation.
+  - Safe clipboard monitoring without leaving persistent secrets in OS clipboard history.
 - **Dependencies**: M9.
 
 ### M11 — Security Hardening

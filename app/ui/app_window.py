@@ -87,7 +87,11 @@ class ApplicationController:
             logger.error("Attempted to show UnlockedView with vault=None.")
             raise ValueError("vault cannot be None when displaying UnlockedView.")
         login_id = self.init_service.get_login_id() or "Default User"
-        unlocked_view = UnlockedView(vault=vault, login_id=login_id)
+        unlocked_view = UnlockedView(
+            vault=vault,
+            login_id=login_id,
+            vault_service=self.vault_service,
+        )
         self.current_window = unlocked_view
 
         # Wire lock action back to locked state

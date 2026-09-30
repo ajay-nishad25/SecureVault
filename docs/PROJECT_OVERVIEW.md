@@ -30,8 +30,7 @@ In an era of recurring cloud data breaches and vendor lock-in, SecureVault ensur
 6. **Password Generator**: Configurable generator supporting variable lengths, uppercase, lowercase, numbers, and symbols with cryptographic randomness.
 7. **Session Security & Auto-Lock**: Automatic vault locking after 10 minutes of user inactivity, plus immediate manual lock capability (`Ctrl+L`).
 8. **Secure Clipboard Assistance**: Quick copy buttons for username and password with an automatic clipboard clear timer (default: 30 seconds).
-9. **Plaintext CSV Export with Safety Warnings**: Full export capability with clear disclosures warning that exported data is unencrypted plaintext.
-10. **Zero Network Activity**: No network calls, telemetry, analytics, update checks, or remote dependencies.
+9. **Zero Network Activity**: No network calls, telemetry, analytics, update checks, or remote dependencies.
 
 ---
 
@@ -45,8 +44,8 @@ In an era of recurring cloud data breaches and vendor lock-in, SecureVault ensur
 | **Cryptography** | Argon2id KDF + AES-256-GCM authenticated encryption (Two-tier KEK/DEK hierarchy). |
 | **Authentication** | Single master password. |
 | **Session Control** | Inactivity timeout (10 min default), manual lock, best-effort memory clearing on lock. |
-| **Data Fields** | Title/Account, Username/Email, Password, Category, Tags, Notes, Timestamps. |
-| **Utility** | Configurable password generator, 30s clipboard auto-clear, CSV export. |
+| **Data Fields** | Title/Account, Username/Email, Password, Notes. |
+| **Utility** | Configurable password generator, 30s clipboard auto-clear. |
 | **Packaging** | Standalone Windows executable/installer via PyInstaller. |
 
 ---
@@ -55,6 +54,7 @@ In an era of recurring cloud data breaches and vendor lock-in, SecureVault ensur
 
 The following capabilities are deliberately excluded from Version 1 to prevent architectural bloat and maintain a minimal attack surface:
 
+- **CSV Export**: SecureVault deliberately does not provide unencrypted CSV export functionality.
 - **Recovery Keys / Backdoors**: If the master password is lost, the vault cannot be recovered. No master keys, escrow systems, or backdoors exist.
 - **SQLite Database**: Flat encrypted file envelope only; no relational database engine on disk.
 - **Cloud Synchronization & Remote Storage**: No sync across Dropbox, Google Drive, OneDrive, WebDAV, or custom servers.

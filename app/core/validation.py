@@ -125,3 +125,38 @@ def estimate_password_strength(password: str) -> tuple[str, int]:
     if score < 90:
         return "Strong", score
     return "Very Strong", score
+
+
+def validate_credential(
+    title: str,
+    username: str,
+    password: str,
+    notes: str = "",
+) -> tuple[bool, str]:
+    """Validate credential fields according to M5 rules.
+
+    Required fields:
+      - title: non-empty string
+      - username: non-empty string
+      - password: non-empty string
+
+    Optional fields:
+      - notes: optional string (defaults to empty string)
+
+    Returns:
+        tuple[bool, str]: (is_valid, error_message_or_empty)
+    """
+    if not isinstance(title, str) or not title.strip():
+        return False, "Credential title is required and cannot be empty."
+
+    if not isinstance(username, str) or not username.strip():
+        return False, "Credential username is required and cannot be empty."
+
+    if not isinstance(password, str) or not password:
+        return False, "Credential password is required and cannot be empty."
+
+    if not isinstance(notes, str):
+        return False, "Credential notes must be a string."
+
+    return True, ""
+

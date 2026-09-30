@@ -13,7 +13,7 @@ SecureVault is an open-source, completely offline, zero-cloud desktop password m
 - **Language**: Python 3.11+ (Runtime: Python 3.11.4 in `.venv/`)
 - **GUI Framework**: PySide6 (Qt 6 for Python)
 - **Cryptography**: `argon2-cffi` (Argon2id KDF), standard `secrets` CSPRNG, `cryptography` (AES-256-GCM AEAD, key wrapping, payload encryption)
-- **Testing**: `pytest` (152 passing tests)
+- **Testing**: `pytest` (216 passing tests)
 - **Platform**: Windows 10/11 64-bit first (`%LOCALAPPDATA%\SecureVault\`); portable design for Linux.
 
 ---
@@ -26,11 +26,11 @@ SecureVault/
 │   ├── core/             # AppConfig, Safe Logging, Domain Exceptions, Validation
 │   ├── crypto/           # Argon2id KDF (kdf.py) & AES-256-GCM (encryption.py)
 │   ├── storage/          # 134-byte binary header (vault_format.py) & atomic I/O (vault_file.py)
-│   ├── services/         # VaultService, AuthenticationService, InitializationService
-│   ├── models/           # CredentialItem & VaultPayload domain models (M5)
-│   └── ui/               # ApplicationController, LockedView, UnlockedView, SetupWizard
+│   ├── services/         # VaultService, AuthenticationService, InitializationService, CredentialService
+│   ├── models/           # Credential domain model (id, title, username, password, notes)
+│   └── ui/               # ApplicationController, LockedView, UnlockedView, SetupWizard, View/Edit Dialogs
 │       └── setup/        # Multi-step QWizard onboarding pages
-├── tests/                # Pytest unit & integration test suites (152 tests)
+├── tests/                # Pytest unit & integration test suites (216 tests)
 ├── docs/                 # Architectural, security, and design specifications
 ├── main.py               # Application entry point (GUI launch + headless flags)
 ├── requirements.txt      # Runtime dependencies (PySide6, argon2-cffi, cryptography)
@@ -47,15 +47,15 @@ SecureVault/
   - `M1 — Project Skeleton & Development Foundation` (Complete)
   - `M2 — First-Run Setup Wizard` (Complete)
   - `M3 — Master Authentication Foundation` (Complete)
-  - `M4 — Cryptographic Vault Implementation` (Complete / Ready for Review)
-- **Current / Next Milestone**: `M5 — Credential CRUD & In-Memory Operations`
-- **Location of M4 Cryptographic Vault Implementation**:
-  - `app/crypto/encryption.py`: AES-256-GCM DEK wrapping, payload encryption, zeroing.
-  - `app/storage/vault_format.py`: 134-byte fixed binary header, struct layout, AAD computation.
-  - `app/storage/vault_file.py`: Atomic write (`.tmp` -> `fsync` -> `replace`), verified read.
-  - `app/services/vault_service.py`: `VaultService` creation, unlock, lock, `DecryptedVault`.
-  - `app/ui/unlocked_view.py`: `UnlockedView` placeholder with session locking.
-- *Do not begin M5 or implement credential CRUD without user instruction.*
+  - `M4 — Cryptographic Vault Implementation` (Complete)
+  - `M5 — Credential CRUD, Encrypted Persistence & View/Edit UI` (Complete / Ready for Review)
+- **Next Milestone**: `M6 — Credential Management UI & In-Memory Search`
+- **Location of M5 Credential Layer**:
+  - `app/models/credential.py`: `Credential` entity with `id`, `title`, `username`, `password`, `notes`.
+  - `app/services/credential_service.py`: `CredentialService` CRUD methods.
+  - `app/services/vault_service.py`: `save_vault` atomic AES-256-GCM re-encryption.
+  - `app/ui/unlocked_view.py`: UI integration (`CredentialCardWidget`, `ViewCredentialDialog`, `EditCredentialDialog`, `AddCredentialDialog`, item list, delete, lock).
+- *Do not begin M6 or search/generator implementation without user instruction.*
 
 ---
 

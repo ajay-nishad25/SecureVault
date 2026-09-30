@@ -59,6 +59,22 @@ class InvalidPasswordInputError(SecurityError):
     """Raised when password input fails length, format, or validity checks."""
 
 
+class VaultLockedError(SecurityError):
+    """Raised when an operation requires an unlocked vault but the vault is locked."""
+
+
 class ValidationError(SecureVaultError):
     """Raised when general input validation fails."""
+
+
+class CredentialError(SecureVaultError):
+    """Base exception for all credential-related operations."""
+
+
+class CredentialNotFoundError(CredentialError):
+    """Raised when a requested credential ID does not exist in the active vault."""
+
+
+class CredentialValidationError(ValidationError, CredentialError):
+    """Raised when credential fields fail validation rules."""
 

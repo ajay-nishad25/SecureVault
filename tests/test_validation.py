@@ -4,6 +4,7 @@ import pytest
 
 from app.core.validation import (
     estimate_password_strength,
+    validate_credential,
     validate_login_id,
     validate_master_password,
 )
@@ -120,3 +121,46 @@ class TestPasswordStrengthEstimation:
         label, score = estimate_password_strength("Correct-Horse-Battery-Staple#2026")
         assert label in ("Strong", "Very Strong")
         assert score >= 70
+
+
+class TestCredentialValidation:
+    """Test suite for credential field validation rules (Milestone 5)."""
+
+    def test_valid_credential(self) -> None:
+        is_valid, error = validate_credential("GitHub", "alice", "SuperSecretPass123!", "Notes")
+        assert is_valid is True
+        assert error == ""
+
+    def test_valid_credential_without_notes(self) -> None:
+        is_valid, error = validate_credential("GitHub", "alice", "SuperSecretPass123!")
+        assert is_valid is True
+        assert error == ""
+
+    def test_empty_title_rejected(self) -> None:
+        is_valid, error = validate_credential("", "alice", "pass")
+        assert is_valid is False
+        assert "title is required" in error
+
+        is_valid_ws, error_ws = validate_credential("   ", "alice", "pass")
+        assert is_valid_ws is False
+        assert "title is required" in error_ws
+
+    def test_empty_username_rejected(self) -> None:
+        is_valid, error = validate_credential("title", "", "pass")
+        assert is_valid is False
+        assert "username is required" in error
+
+        is_valid_ws, error_ws = validate_credential("title", "   ", "pass")
+        assert is_valid_ws is False
+        assert "username is required" in error_ws
+
+    def test_empty_password_rejected(self) -> None:
+        is_valid, error = validate_credential("title", "user", "")
+        assert is_valid is False
+        assert "password is required" in error
+
+    def test_invalid_types_rejected(self) -> None:
+        assert validate_credential(123, "user", "pass")[0] is False  # type: ignore
+        assert validate_credential("title", None, "pass")[0] is False  # type: ignore
+        assert validate_credential("title", "user", 456)[0] is False  # type: ignore
+        assert validate_credential("title", "user", "pass", notes=123)[0] is False  # type: ignore

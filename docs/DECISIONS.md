@@ -151,3 +151,21 @@ Each record details the context, decision, and consequences.
   - *Positive*: Full cryptographic tamper detection is maintained for both key wrapping and payload bounds.
   - *Trade-off*: Slicing non-contiguous byte ranges requires explicit offsets (`0x00:0x0A` and `0x62:0x6A`) during AAD assembly.
 
+---
+
+## ADR-014: In-Memory Credential CRUD & Immediate Atomic Vault Re-Encryption
+- **Status**: Accepted (Milestone M5)
+- **Context**: In Milestone M5, SecureVault establishes the credential data layer. When credentials are created, updated, or deleted in an active unlocked vault session, the modifications must be persisted safely and reliably without creating unencrypted intermediate artifacts, corrupting existing key material, or desynchronizing in-memory and on-disk states.
+- **Decision**:
+  1. **Strict Credential Model**: An individual credential consists of exactly `id`, `title`, `username`, `password`, and `notes`. No `type` or category fields are included in M5.
+  2. **Automated Identity**: `id` is an automatically generated UUID string, ensuring vault-wide uniqueness.
+  3. **Immediate Atomic Re-Encryption**: Every mutating CRUD operation (`create_credential`, `update_credential`, `delete_credential`) delegates directly to `VaultService.save_vault()`. The in-memory JSON payload is serialized, re-encrypted under the active in-memory DEK with a fresh 12-byte CSPRNG nonce and 18-byte `AAD_PAYLOAD`, and atomically persisted using a `.tmp` file and atomic replace.
+  4. **Frozen Header Preservation**: The public header, KDF parameters, salt, and wrapped DEK are preserved byte-for-byte; only the payload length, nonce, and authentication tag are updated in the 134-byte header.
+  5. **Representation Masking**: `Credential.__repr__` automatically redacts secret passwords to `'***'` to prevent inadvertent disclosure in debug output, logs, or exceptions.
+  6. **Plaintext Export Exclusion**: SecureVault explicitly rejects unencrypted plaintext CSV export to protect user data from accidental unencrypted exposure.
+- **Consequences**:
+  - *Positive*: Crash resilience; mutations are immediately committed to disk under authenticated encryption.
+  - *Positive*: Reuses vetted M4 AES-256-GCM primitives without cryptographic duplication.
+  - *Positive*: In-memory representation remains synchronized with persistent `.svault` storage.
+
+

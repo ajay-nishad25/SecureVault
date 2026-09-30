@@ -72,12 +72,7 @@ Honesty in threat modeling is paramount. The following threats reside outside th
 - **Reality**: While SecureVault actively zeroes mutable buffers and releases references, Python's runtime memory allocator (`pymalloc`) and garbage collection do not guarantee immediate physical overwrite of every byte in physical RAM.
 - **Application Boundary**: SecureVault does not claim protection against hardware-level physical forensic extraction or kernel-level memory dumps. Users requiring protection against physical disk extraction should utilize Full Disk Encryption (BitLocker / LUKS) with pre-boot PINs.
 
-### 3.3 Threat: Plaintext Exposure of Exported CSV Files
-- **Scenario**: The user exports credentials to CSV and leaves the file on their desktop, unencrypted cloud folder, or USB drive.
-- **Reality**: SecureVault cannot control third-party files once written to the OS.
-- **Application Safeguards**: SecureVault mitigates accidental exposure by forcing a prominent warning modal, requiring master password re-authentication, and enforcing an explicit acknowledgment checkbox before generating any CSV file.
-
-### 3.4 Threat: User Master Password Forgotten
+### 3.3 Threat: User Master Password Forgotten
 - **Scenario**: The user forgets their master password.
 - **Reality**: Because there is **no recovery key**, **no backdoor**, and **no cloud reset** in Version 1, mathematical encryption guarantees that the data cannot be decrypted.
 - **Application Safeguards**: The user is explicitly warned during initial onboarding and must tick a mandatory acknowledgment checkbox before vault creation.

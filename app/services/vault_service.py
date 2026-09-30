@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 import struct
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Union
@@ -31,6 +31,7 @@ from app.core.exceptions import (
     DecryptionError,
     InvalidPasswordInputError,
     SecurityError,
+    VaultLockedError,
 )
 from app.core.logging import get_logger
 from app.crypto.encryption import (
@@ -365,6 +366,64 @@ class VaultService:
         )
         self._active_vault = decrypted_vault
         return decrypted_vault
+
+    def save_vault(self, vault: DecryptedVault | None = None) -> None:
+        """Persist the active unlocked vault session to disk under AES-256-GCM.
+
+        Re-encrypts the updated JSON payload using the active DEK and updates
+        the payload length, nonce, and authentication tag in the 134-byte header.
+        The wrapped DEK, salt, and KDF parameters remain completely intact.
+        Writes atomically via temporary file and replace.
+
+        Args:
+            vault: Optional DecryptedVault instance (defaults to self.active_vault).
+
+        Raises:
+            VaultLockedError: If vault is None or locked.
+            StorageError: If atomic file write fails.
+        """
+        target_vault = vault or self._active_vault
+        if target_vault is None or target_vault.is_locked:
+            raise VaultLockedError("Cannot save vault: active vault session is locked or unavailable.")
+
+        # Update updated_at timestamp in payload envelope
+        target_vault.payload["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+        # Serialize payload to JSON bytes
+        plaintext_payload = json.dumps(target_vault.payload, indent=2).encode("utf-8")
+        payload_len = len(plaintext_payload)
+
+        # Compute AAD_PAYLOAD (MAGIC 8B + FORMAT_VERSION 2B + PAYLOAD_LEN 8B)
+        aad_payload = struct.pack(
+            ">8s H Q",
+            MAGIC,
+            CURRENT_FORMAT_VERSION,
+            payload_len,
+        )
+
+        # Encrypt payload under DEK with fresh 12-byte CSPRNG nonce
+        payload_nonce, payload_ciphertext, payload_tag = encrypt_payload(
+            bytes(target_vault.dek),
+            plaintext_payload,
+            aad_payload,
+        )
+
+        # Update header payload metadata (VaultHeader is frozen)
+        target_vault.header = replace(
+            target_vault.header,
+            payload_len=payload_len,
+            payload_nonce=payload_nonce,
+            payload_tag=payload_tag,
+        )
+
+        # Assemble and serialize exact 134-byte VaultHeader
+        header_bytes = target_vault.header.serialize()
+
+        # Atomically write to disk
+        write_vault_file(target_vault.vault_path, header_bytes, payload_ciphertext)
+
+        target_vault.raw_json = plaintext_payload.decode("utf-8")
+        logger.info("Encrypted vault successfully saved and persisted to disk.")
 
     def lock_vault(self) -> None:
         """Lock the active vault session and wipe in-memory sensitive keys."""

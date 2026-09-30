@@ -132,8 +132,8 @@ SecureVault's testing architecture enforces high-reliability standards appropria
   - **AAD Slicing**: Validates exact 38-byte `AAD_DEK` and 18-byte `AAD_PAYLOAD` extraction.
   - **Validation & Rejection**: Verifies rejection of bad magic, unsupported versions, bad KDF ID, and truncated headers.
 
-### 2.11 Vault Service & Persistence Tests (M4)
-- `tests/test_vault_service.py` (14 tests):
+### 2.11 Vault Service & Persistence Tests (M4/M5)
+- `tests/test_vault_service.py` (16 tests):
   - **Vault Creation & Unlock**: Verifies creation of `.svault` file, file size calculation (134 + payload), and unlock with correct password.
   - **Natural Wrong-Password Detection**: Verifies that incorrect passwords trigger authenticated DEK unwrap failure and raise `AuthenticationError`.
   - **Input Bounds**: Verifies empty passwords raise `InvalidPasswordInputError`.
@@ -141,14 +141,41 @@ SecureVault's testing architecture enforces high-reliability standards appropria
   - **Atomic Persistence**: Verifies `.tmp` file is safely renamed and no temporary file remains.
   - **Security Secrecy Scan**: Verifies that the `.svault` file does NOT contain master passwords, raw DEK bytes, raw KEK bytes, or plaintext JSON strings.
   - **Session Locking**: Verifies that `lock()` zeroes mutable DEK buffers and clears payload data.
+  - **Payload Re-Encryption (`save_vault`)**: Verifies updating payload content re-encrypts under active DEK and persists changes atomically.
+
+### 2.12 Credential CRUD & Persistence Tests (M5)
+- `tests/test_credential_model.py` (11 tests):
+  - **Validation**: Enforces non-empty required fields (`title`, `username`, `password`) and optional `notes`.
+  - **Identity**: Verifies automatic unique UUID generation.
+  - **Schema Fidelity**: Verifies `to_dict` and `from_dict` strictly preserve schema (`id`, `title`, `username`, `password`, `notes`) with no extra fields or types.
+  - **Masked Representation**: Verifies `__repr__` redacts passwords to `'***'`.
+- `tests/test_credential_service.py` (19 tests):
+  - **CREATE**: Valid credential creation, UUID uniqueness, required field validation, atomic disk persistence, and zero password logging.
+  - **READ**: Retrieval by ID, listing all entries, and clean unknown ID handling (`None` / `CredentialNotFoundError`).
+  - **UPDATE**: Modifying title, username, password, and notes; ID immutability; invalid update rejection; disk persistence.
+  - **DELETE**: Safe deletion by ID, item count reduction, disk persistence, and unknown ID rejection.
+  - **Locked Vault Guard**: Enforces `VaultLockedError` on all CRUD operations if vault session is locked.
+- `tests/test_credential_persistence.py` (4 tests):
+  - **Full Lifecycles**: `Create -> Lock -> Unlock -> Reload`, `Create -> Update -> Lock -> Unlock -> Reload`, `Create -> Delete -> Lock -> Unlock -> Reload`.
+  - **Ciphertext Privacy**: Verifies that credential passwords, titles, and usernames are completely absent from raw `.svault` file bytes on disk.
+- `tests/test_ui_unlocked_view.py` (4 tests):
+  - Verifies dynamic credential count, list rendering, Add Credential dialog validation, delete action, and session lock wiping.
+- `tests/test_ui_view_edit.py` (9 tests):
+  - **View Dialog**: Verifies display of Title, Username, Password, Notes; verifies read-only enforcement; verifies password masked by default; verifies `[ Show ]` / `[ Hide ]` toggle; verifies zero "type" field; verifies closing leaves vault unchanged.
+  - **Edit Dialog**: Verifies form population with existing values; verifies password masked by default with `[ Show ]` / `[ Hide ]` toggle; verifies field validation keeping dialog open on failure; verifies Cancel leaves data unchanged.
+  - **Untouched Password Preservation**: Verifies that editing only title/notes preserves the existing password without asterisks or placeholder overwrites.
+  - **Full Update**: Verifies updating all fields retains the same ID with no duplicates.
+  - **Persistence Across Lock/Unlock**: Verifies `Create -> Edit -> Lock -> Unlock -> Read` preserves updated fields across re-encryption.
+  - **Multiple Credential Independence**: Verifies operating on one credential (View GitHub, Edit Google, Delete Google) does not alter or corrupt independent credentials (LinkedIn, GitHub).
+  - **Card Signals**: Verifies `CredentialCardWidget` emits view, edit, and delete signals mapped to specific credential IDs.
 
 ---
 
 ## 3. Future Test Suites (Scheduled per Roadmap)
 
-- **M5 (Credential CRUD)**: In-memory credential CRUD, search/filtering, JSON schema serialization.
+- **M6 (Vault UI & Search)**: Polished multi-pane credential list, detail editor, instant in-memory filtering.
 - **M7 (Session & Auto-Lock)**: 10-minute inactivity timer expiration, activity event reset, lock memory purging.
-- **M10 (Clipboard & Export)**: 30-second clipboard watchdog clearing, CSV export with warning.
+- **M10 (Clipboard Security)**: 30-second clipboard watchdog clearing.
 
 ---
 
@@ -159,4 +186,4 @@ All tests are executed using pytest:
 # Run full test suite
 .venv\Scripts\pytest.exe -v
 ```
-*Current test status: 152 passed, 0 failed.*
+*Current test status: 209 passed, 0 failed.*

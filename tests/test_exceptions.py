@@ -4,10 +4,14 @@ import pytest
 
 from app.core.exceptions import (
     ConfigurationError,
+    CredentialError,
+    CredentialNotFoundError,
+    CredentialValidationError,
     SecureVaultError,
     SecurityError,
     StorageError,
     ValidationError,
+    VaultLockedError,
 )
 
 
@@ -17,6 +21,10 @@ def test_exception_inheritance() -> None:
     assert issubclass(StorageError, SecureVaultError)
     assert issubclass(SecurityError, SecureVaultError)
     assert issubclass(ValidationError, SecureVaultError)
+    assert issubclass(VaultLockedError, SecurityError)
+    assert issubclass(CredentialError, SecureVaultError)
+    assert issubclass(CredentialNotFoundError, CredentialError)
+    assert issubclass(CredentialValidationError, ValidationError)
     assert issubclass(SecureVaultError, Exception)
 
 

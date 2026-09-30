@@ -21,6 +21,7 @@ from app.core.exceptions import (
     CorruptedVaultError,
     InvalidPasswordInputError,
     InvalidVaultFormatError,
+    VaultLockedError,
     VaultNotFoundError,
 )
 from app.crypto.kdf import KDFParameters
@@ -272,3 +273,53 @@ class TestSecuritySecrecy:
         assert b"schema_version" not in raw_file_bytes
         assert b"vault_id" not in raw_file_bytes
         assert b"items" not in raw_file_bytes
+
+
+class TestVaultSave:
+    """Test suite for VaultService.save_vault persistence (Milestone 5)."""
+
+    def test_save_vault_persists_payload_changes(
+        self,
+        vault_service: VaultService,
+        fast_kdf_params: KDFParameters,
+    ) -> None:
+        master_password = "SaveTestPassword123!"
+        vault = vault_service.create_vault(master_password, kdf_params=fast_kdf_params)
+
+        # Modify in-memory payload
+        test_item = {
+            "id": "custom-uuid-1",
+            "title": "CustomItem",
+            "username": "custom_user",
+            "password": "SecretPassword99!",
+            "notes": "Custom notes",
+        }
+        vault.payload["items"].append(test_item)
+
+        # Save
+        vault_service.save_vault(vault)
+
+        # Lock and re-unlock
+        vault_service.lock_vault()
+        assert vault_service.active_vault is None
+
+        reloaded_vault = vault_service.unlock_vault(master_password)
+        assert reloaded_vault.item_count == 1
+        assert reloaded_vault.payload["items"][0]["id"] == "custom-uuid-1"
+        assert reloaded_vault.payload["items"][0]["title"] == "CustomItem"
+        assert reloaded_vault.payload["items"][0]["password"] == "SecretPassword99!"
+
+    def test_save_vault_when_locked_raises_error(
+        self,
+        vault_service: VaultService,
+        fast_kdf_params: KDFParameters,
+    ) -> None:
+        vault = vault_service.create_vault("Pass123!", kdf_params=fast_kdf_params)
+        vault_service.lock_vault()
+
+        with pytest.raises(VaultLockedError):
+            vault_service.save_vault(vault)
+
+        with pytest.raises(VaultLockedError):
+            vault_service.save_vault(None)
+

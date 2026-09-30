@@ -120,9 +120,42 @@ def test_full_m2_onboarding_lifecycle() -> None:
         assert len(unlocked_view._vault.vault_id) > 0
         assert unlocked_view._vault.item_count == 0
 
-        # 8. Lock via UnlockedView
+        # 8. Create credential in UnlockedView and verify persistence
+        assert unlocked_view._credential_service is not None
+        created_cred = unlocked_view._credential_service.create_credential(
+            title="GitHub",
+            username="alice@github.com",
+            password="MySecretPassword123!",
+            notes="Personal token",
+        )
+        unlocked_view._refresh_credentials()
+        assert unlocked_view.credential_list.count() == 1
+        assert unlocked_view._vault.item_count == 1
+
+        # 9. Lock via UnlockedView
         unlocked_view._on_lock_clicked()
         if app:
             app.processEvents()
         assert controller.current_window.windowTitle() == "SecureVault — Vault Locked"
+
+        # 10. Re-unlock and verify credential was reloaded from encrypted vault
+        locked_view2 = controller.current_window
+        locked_view2.password_input.setText("MasterPassword2026!")
+        locked_view2._on_unlock_clicked()
+        if locked_view2._worker:
+            locked_view2._worker.wait(3000)
+        if app:
+            app.processEvents()
+
+        assert controller.current_window.windowTitle() == "SecureVault — Vault Unlocked"
+        unlocked_view2 = controller.current_window
+        assert unlocked_view2._vault.item_count == 1
+        assert unlocked_view2._credential_service is not None
+        reloaded_cred = unlocked_view2._credential_service.get_credential(created_cred.id)
+        assert reloaded_cred is not None
+        assert reloaded_cred.title == "GitHub"
+        assert reloaded_cred.username == "alice@github.com"
+        assert reloaded_cred.password == "MySecretPassword123!"
+        assert reloaded_cred.notes == "Personal token"
+
 

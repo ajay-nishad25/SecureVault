@@ -7,7 +7,7 @@ The user experience adheres to four core tenets:
 1. **Clean & Uncluttered**: A modern, high-contrast desktop aesthetic with dedicated Dark and Light themes.
 2. **Obvious Security State**: Clear visual status indicators showing whether the vault is `UNINITIALIZED`, `LOCKED`, or `UNLOCKED`.
 3. **Frictionless Keyboard Navigation**: Full tab order support, `Ctrl+F` search focus, `Ctrl+N` new item, `Ctrl+L` instant lock, and `Escape` to close modals.
-4. **Data Privacy First**: Passwords are masked by default (`••••••••`), clipboard clears automatically, and dangerous actions (such as plaintext CSV export) require deliberate acknowledgment.
+4. **Data Privacy First**: Passwords are masked by default (`••••••••`), clipboard clears automatically, and secrets are handled strictly in-memory.
 
 ---
 
@@ -75,6 +75,34 @@ The user experience adheres to four core tenets:
 
 ---
 
+### Screen 3b: Unlocked Vault & Credential Management (Milestone M5)
+- **Context**: Displayed upon successful cryptographic unlock in Milestone M5 (`UNLOCKED` state).
+- **Components**:
+  - Header with profile ID, vault ID, and stored credential count.
+  - Scrollable credential list rendering `CredentialCardWidget` entries:
+    - Title, username, and notes preview.
+    - Dedicated per-entry buttons: `[ 👁 View ]`, `[ ✏️ Edit ]`, `[ 🗑 Delete ]`.
+  - Global Actions: `[ ➕ Add Credential ]`, `[ 🔒 Lock Vault ]`, `[ Exit ]`.
+  - Smooth pixel-based scrolling (`ScrollPerPixel`) with fluid mouse-wheel navigation.
+  - **Delete Confirmation Modal**:
+    - Triggered by clicking `[ 🗑 Delete ]` on any card.
+    - Prompts with: *"Are you sure you want to delete '{title}'? This action cannot be undone."*
+    - Actions: `[ Cancel ]` (aborts deletion), `[ Delete ]` (permanently deletes entry and persists changes).
+  - **View Credential Modal (`ViewCredentialDialog`)**:
+    - Read-only display of Title, Username, Password, and Notes.
+    - Password is masked by default with `[ Show ]` / `[ Hide ]` toggle button.
+    - No "type" field. Read-only without modifying credential or vault.
+  - **Edit Credential Modal (`EditCredentialDialog`)**:
+    - Editable form pre-populated with existing Title, Username, Password, and Notes.
+    - Password is masked by default with `[ Show ]` / `[ Hide ]` toggle.
+    - Untouched password is preserved without overwrite.
+    - Input validation rejects empty required fields and keeps dialog open with error.
+    - Saves changes via `CredentialService.update_credential()` and atomic re-encryption.
+  - **Add Credential Modal (`AddCredentialDialog`)**:
+    - Creation form with field validation and masked password input.
+
+---
+
 ### Screen 4: Main Vault Screen (Milestone M6)
 - **Context**: The primary operational dashboard while unlocked (`UNLOCKED` state).
 - **Layout (Two-Column Split)**:
@@ -107,17 +135,12 @@ The user experience adheres to four core tenets:
 
 ### Screen 7: Settings Screen (Milestone M8)
 - **Context**: Application preferences dialog (`settings.json`).
-- **Tabs**: Security (auto-lock timer, clipboard timer, change password), Appearance (theme selection), Storage location, CSV export trigger.
+- **Tabs**: Security (auto-lock timer, clipboard timer, change password), Appearance (theme selection), Storage location.
 
 ---
 
 ### Screen 8: Change Master Password Modal (Milestone M9)
 - **Context**: Re-wraps the DEK with a new master password and fresh salt.
-
----
-
-### Screen 9: CSV Export Warning & Confirmation Dialog (Milestone M10)
-- **Context**: Displays prominent plaintext disclosure, requires master password re-authentication, and requires an explicit acknowledgment checkbox before writing to CSV.
 
 ---
 

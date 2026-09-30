@@ -2,10 +2,10 @@
 
 ## 1. Milestone Tracking
 
-- **Current Milestone**: `M4 — Cryptographic Vault`
+- **Current Milestone**: `M5 — Credential CRUD & Encrypted Persistence`
 - **Status**: **Implementation Complete / Ready for Review**
 - **Target Release**: Version 1.0.0 (Windows)
-- **Next Milestone**: `M5 — Credential CRUD & In-Memory Operations`
+- **Next Milestone**: `M6 — Credential Management UI & In-Memory Search`
 
 ---
 
@@ -85,50 +85,75 @@
   - `create_vault`: Creates empty JSON envelope, generates DEK, wraps under KEK, encrypts payload, writes atomic file.
   - `unlock_vault`: Reads file, extracts KDF parameters, derives KEK, unwraps DEK (natural wrong-password detection), decrypts payload, parses JSON envelope into active `DecryptedVault`.
   - `lock_vault`: In-place zeroing of mutable DEK buffer and dereferencing of decrypted payload.
-- **UI Integration (`app/ui/setup/wizard.py`, `app/ui/locked_view.py`, `app/ui/unlocked_view.py`, `app/ui/app_window.py`)**:
-  - Setup Wizard now creates the real encrypted `vault.svault` file upon completing onboarding.
-  - `LockedView` uses background `AuthWorker(QThread)` to unlock and decrypt vault without freezing the event loop.
-  - Emits `vault_unlocked(DecryptedVault)` carrying the concrete decrypted session object to `ApplicationController._on_vault_unlocked(vault)`.
-  - `UnlockedView` displays real session metadata (`vault_id`, stored item count) from the active `DecryptedVault`.
-  - `ApplicationController` routes `UNINITIALIZED -> SetupWizard -> LOCKED -> UnlockedView -> LOCKED`, locking active session on exit.
-  - Fixed M4 GUI integration bug: removed legacy transitional fallback in `AuthWorker.run()` that emitted `vault=None`, enforced strict `DecryptedVault` propagation, updated UI feedback message to "Vault decrypted and authenticated successfully.", and added missing vault file detection and recovery guidance.
-- **Files Added / Modified**:
-  - *Added*: `app/crypto/encryption.py`, `app/storage/vault_format.py`, `app/storage/vault_file.py`, `app/services/vault_service.py`, `app/ui/unlocked_view.py`, `tests/test_encryption.py`, `tests/test_vault_format.py`, `tests/test_vault_service.py`.
-  - *Modified*: `requirements.txt`, `pyproject.toml`, `app/crypto/__init__.py`, `app/storage/__init__.py`, `app/services/__init__.py`, `app/core/exceptions.py`, `app/services/initialization.py`, `app/ui/setup/wizard.py`, `app/ui/locked_view.py`, `app/ui/app_window.py`, `tests/test_ui_locked_view.py`, `tests/test_flow.py`.
-- **Testing**: 154 tests passing (46 new tests covering AES-256-GCM primitives, 134-byte golden binary layout, file tampering/corruption, atomic persistence, security secrecy, wrong-password rejection, and DecryptedVault propagation to UnlockedView).
+  - Fixed M4 GUI integration bug: enforced non-None `DecryptedVault` propagation across signals and controller transitions.
+
+### Milestone 5 (M5 — Credential CRUD, Encrypted Persistence & View/Edit UI)
+- **Credential Model (`app/models/credential.py`, `app/models/__init__.py`)**:
+  - Strictly defined entity containing exactly: `id`, `title`, `username`, `password`, `notes`.
+  - Automated identity: generated unique UUID string per credential; users cannot manually specify or alter it.
+  - Strict exclusions: no `type`, `category`, `tags`, or extraneous timestamps.
+  - Safe representation: `Credential.__repr__` automatically redacts secret passwords to `'***'`.
+  - Serialization / Deserialization: `to_dict()` and `from_dict()` preserving exact JSON schema.
+- **Validation Engine (`app/core/validation.py`, `app/core/exceptions.py`)**:
+  - Added `validate_credential(title, username, password, notes)` enforcing non-empty required fields.
+  - Added domain exceptions: `CredentialError`, `CredentialNotFoundError`, `CredentialValidationError`, and `VaultLockedError`.
+- **Vault Persistence Engine (`app/services/vault_service.py`)**:
+  - Added `save_vault(self, vault=None)`: serializes updated payload JSON, re-encrypts under active in-memory DEK with fresh 12-byte CSPRNG nonce and 18-byte `AAD_PAYLOAD`, updates the frozen `VaultHeader` via `dataclasses.replace`, and persists atomically via temporary file and replace.
+- **Credential Service (`app/services/credential_service.py`, `app/services/__init__.py`)**:
+  - Implemented `CredentialService`:
+    - `create_credential(title, username, password, notes)`
+    - `get_credential(id)` -> returns `Credential | None`
+    - `get_credential_or_raise(id)` -> raises `CredentialNotFoundError` if missing
+    - `get_all_credentials()` -> returns `list[Credential]`
+    - `update_credential(id, title, username, password, notes)`
+    - `delete_credential(id)` -> removes item and persists
+  - Bound to active `VaultService`; operations raise `VaultLockedError` if the vault session is locked.
+  - Zero password logging enforced across all operations.
+- **View & Edit UI Integration & Polish (`app/ui/unlocked_view.py`, `app/ui/app_window.py`)**:
+  - `UnlockedView` upgraded with dynamic credential counter, smooth pixel-based scrolling (`ScrollPerPixel`), and session lock.
+  - `CredentialCardWidget`: Individual card row displaying title, username, notes preview, and dedicated `[ View ]`, `[ Edit ]`, `[ Delete ]` buttons operating on that credential's ID.
+  - `ViewCredentialDialog`: Read-only dialog displaying Title, Username, Password, Notes. Password is masked by default with a `[ Show ]` / `[ Hide ]` toggle button. No "type" field exists.
+  - `EditCredentialDialog`: Editable form populated with existing values. Password is masked by default with a `[ Show ]` / `[ Hide ]` toggle. Preserves untouched original password when saving. Validates required fields and saves through `CredentialService.update_credential()`.
+  - `AddCredentialDialog`: Modal creation dialog with field validation and masked password input.
+  - **Delete Selected Removed**: Redundant bottom "Delete Selected" button removed entirely; per-card Delete button is the sole and clean deletion entrypoint.
+  - **Delete Confirmation Dialog**: Shows warning modal (*"Are you sure you want to delete '{title}'? This action cannot be undone."*) with `Cancel` and `Delete` buttons before executing permanent deletion.
+  - **Smooth Pixel Scrolling**: Configured `ScrollPerPixel` and vertical scrollbar single step on `credential_list` for fluid, non-jumping card scrolling.
+  - Seamless data flow verified: `UI -> CredentialService -> DecryptedVault -> VaultService -> Encrypted .svault`.
+- **Testing**: 216 tests passing across entire suite (62 M5 tests covering models, CRUD operations, persistence lifecycles, UI view/edit/card layout, delete confirmation, and smooth scrolling).
 
 ---
 
-## 3. What is Intentionally NOT Implemented in M4
+## 3. What is Intentionally NOT Implemented in M5
 
-In strict adherence to the milestone boundaries:
-- **Credential CRUD (Create, Read, Update, Delete)**: Deferred to M5.
-- **Credential Management UI**: Deferred to M5/M6.
-- **Password Generator**: Deferred to M6.
-- **Auto-Lock Timers**: Deferred to M7.
-- **Search & Filtering**: Deferred to M8.
-- **Clipboard Management**: Deferred to M10.
-- **CSV Export**: Deferred to M10.
-- **Password Rotation UI**: Deferred to M11 (underlying AAD format is already decoupled in M4).
+In strict adherence to project boundaries:
+- **Search & Filtering**: Scheduled for M6.
+- **Advanced Multi-Pane Vault UI**: Scheduled for M6.
+- **Password Generator**: Scheduled for M6.
+- **Auto-Lock Timers**: Scheduled for M7.
+- **Clipboard Management**: Scheduled for M10.
+- **CSV Export**: Permanently excluded from SecureVault.
+- **Password Rotation UI**: Scheduled for M11.
 
 ---
 
 ## 4. Current Task
-M4 review and verification.
+M5 Credential CRUD, View/Edit UI, and final UI polish complete and ready for human review.
 
 ---
 
 ## 5. Next Task
-M5 — Credential CRUD & In-Memory Operations.
+M6 — Credential Management UI & In-Memory Search.
 
 ---
 
 ## 6. Known Issues / Unresolved Items
-- **None**: All M4 cryptographic vault deliverables are implemented and tested with 100% pass rate (152/152 passing tests).
+- **None**: All M5 requirements, CRUD operations, View/Edit UI, delete confirmation, smooth scrolling, atomic persistence, and tests pass with 100% pass rate (216/216 passing tests).
 
 ---
 
 ## 7. Important Decisions Summary
-- **ADR-001 through ADR-011**: Foundational language, GUI, offline, cryptographic, storage, and logging decisions.
+- **ADR-001 through ADR-011**: Foundational architecture, GUI, offline, cryptographic, storage, and logging decisions.
 - **ADR-012**: Zero-Verifier / KEK-Only Master Authentication.
-- **ADR-008 & M4 Architecture**: Decoupled AAD design (`AAD_PAYLOAD` excludes salt and KDF fields) guarantees future master password rotation does not require re-encrypting the vault payload.
+- **ADR-013**: Decoupled AAD Envelope Architecture for Atomic Key Rotation.
+- **ADR-014**: In-Memory Credential CRUD & Immediate Atomic Vault Re-Encryption.
+

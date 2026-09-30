@@ -64,7 +64,7 @@ SecureVault is built on five core architectural principles:
 - **Responsibilities**:
   - Render user interface screens and dialogs.
   - Capture user events (mouse movement, keypresses) to notify the Session Manager of active interactions.
-  - Route user commands (login, lock, add credential, copy password, export CSV) to controller/manager services.
+  - Route user commands (login, lock, add credential, copy password) to controller/manager services.
   - Display sanitized error messages without leaking internal exceptions or cryptographic parameters.
 - **Boundaries**:
   - The UI layer does **not** perform cryptographic operations, file system reads/writes, or direct credential serialization.
