@@ -6,9 +6,9 @@
 
 ## Current Status
 
-- **Current Milestone**: `M1 — Project Skeleton & Development Foundation` (Complete / Ready for Review)
+- **Current Milestone**: `M2 — First-Run Setup Wizard` (Complete / Ready for Review)
 - **Active Version**: `0.1.0`
-- **Application State**: The project skeleton, dependency management, package layout, safe configuration, logging, exception hierarchy, and pytest test suite are established. Product features (master authentication, encryption engine, credential vault, and UI) are scheduled across milestones M2 through M14.
+- **Application State**: The multi-step First-Run Setup Wizard, input validation rules, no-recovery acknowledgement gating, and post-setup locked state transitions are fully implemented and verified. Real cryptographic key derivation and vault encryption will be activated in Milestones M3 and M4.
 
 ---
 
@@ -17,7 +17,7 @@
 - **Language**: Python 3.11+ (Tested on Python 3.11.4)
 - **GUI Toolkit**: PySide6 (Qt 6 for Python)
 - **Cryptographic Libraries**: `cryptography`, `argon2-cffi` (scheduled for M3/M4)
-- **Test Runner**: `pytest`
+- **Test Runner**: `pytest` (79 passing tests)
 - **Target Platform**: Windows 10/11 (with cross-platform architecture targeting Linux in post-v1)
 
 ---
@@ -41,20 +41,24 @@ python -m venv .venv
 
 ### 3. Install Dependencies
 ```powershell
-# Install runtime dependencies
+# Install runtime dependencies (PySide6)
 pip install -r requirements.txt
 
-# Or install all development and testing dependencies
+# Or install all development and testing dependencies (PySide6 + pytest)
 pip install -r requirements-dev.txt
 ```
 
-### 4. Run the Application Entry Point
+### 4. Run the Application
 ```powershell
-# Execute the M1 foundation entry point
+# Launch the desktop PySide6 application
+# (Opens Setup Wizard on first run, or Locked View if initialized)
 python main.py
 
-# Verify configuration and data directory resolution
+# Verify configuration and data directory resolution headlessly
 python main.py --check-config
+
+# Run headless startup check without opening the GUI
+python main.py --headless
 
 # Display version
 python main.py --version
@@ -62,7 +66,7 @@ python main.py --version
 
 ### 5. Run the Test Suite
 ```powershell
-# Run all unit tests
+# Run all 79 unit and GUI integration tests
 pytest
 
 # Run tests with verbose output
@@ -77,15 +81,16 @@ pytest -v
 SecureVault/
 ├── app/
 │   ├── __init__.py       # Central version definition (__version__ = "0.1.0")
-│   ├── core/             # AppConfig, Safe Logging, Domain Exceptions
+│   ├── core/             # AppConfig, Safe Logging, Domain Exceptions, Validation
 │   ├── crypto/           # Cryptographic primitives boundary (M3/M4)
 │   ├── storage/          # Binary envelope & atomic file persistence boundary (M4)
-│   ├── services/         # Clipboard watchdog & auto-lock services boundary (M7/M10)
+│   ├── services/         # InitializationService, Clipboard watchdog (M10), Auto-lock (M7)
 │   ├── models/           # CredentialItem & VaultPayload domain models (M5)
-│   └── ui/               # PySide6 desktop views & themes (M2/M6/M8)
-├── tests/                # Pytest unit & integration test suites
+│   └── ui/               # ApplicationController, LockedView, SetupWizard
+│       └── setup/        # Multi-step QWizard onboarding pages
+├── tests/                # Pytest unit & integration test suites (79 tests)
 ├── docs/                 # Architectural, security, and design specifications
-├── main.py               # Minimal application entry point & CLI verification
+├── main.py               # Application entry point (GUI launch + headless flags)
 ├── requirements.txt      # Runtime dependencies (PySide6)
 ├── requirements-dev.txt  # Dev/test dependencies (pytest)
 ├── pyproject.toml        # Package metadata & pytest configuration

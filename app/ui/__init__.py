@@ -2,10 +2,13 @@
 
 Architectural Boundary:
 This package encapsulates all desktop graphical interface components:
-  - MainWindow, views, and dialog controllers
-  - View states (UNINITIALIZED, LOCKED, UNLOCKED)
-  - Dark and Light themes (QSS)
-  - Input forms and keyboard navigation
-
-Note: UI implementation is scheduled for Milestones M2, M6, and M8.
+  - First-Run Setup Wizard (SetupWizard)
+  - Locked View placeholder (LockedView) [M3 will implement LoginView]
+  - Main Vault Dashboard (MainWindow) [M6]
+  - Preferences Dialog (SettingsDialog) [M8]
 """
+
+from app.ui.locked_view import LockedView
+from app.ui.setup.wizard import SetupWizard
+
+__all__ = ["SetupWizard", "LockedView"]
