@@ -99,11 +99,52 @@ SecureVault's testing architecture enforces high-reliability standards appropria
 - `tests/test_flow.py`:
   - Full end-to-end integration test: uninitialized -> cancel -> complete setup -> locked view -> restart.
 
+### 2.9 AES-256-GCM Encryption Tests (M4)
+- `tests/test_encryption.py` (18 tests):
+  - **DEK Generation**: Validates 32-byte key length and CSPRNG randomness across calls.
+  - **Nonce Generation**: Enforces 12-byte (96-bit) length, CSPRNG randomness, and rejection of invalid sizes.
+  - **Key Wrapping**: Verifies AES-256-GCM round-trip wrapping/unwrapping of DEK under KEK and AAD_DEK.
+  - **Tag Verification**: Verifies rejection of wrong KEK, tampered ciphertext, tampered tag, tampered nonce, and tampered AAD.
+  - **Payload Encryption**: Validates AES-256-GCM encryption/decryption round-trip, ciphertext privacy (plaintext absent), and tamper rejection.
+  - **Memory Zeroing**: Validates in-place mutable buffer zeroing.
+
+### 2.10 Vault Binary Format & Golden Header Tests (M4)
+- `tests/test_vault_format.py` (12 tests):
+  - **Size Invariant**: Verifies exact 134-byte (`0x86`) static header size.
+  - **Golden Header Fixture**: Byte-by-byte offset verification matching `docs/DATA_FORMAT.md`:
+    - `0x00-0x07`: `MAGIC` (`b'SVAULT01'`)
+    - `0x08-0x09`: `FORMAT_VERSION` (`1`)
+    - `0x0A`: `KDF_ID` (`1`)
+    - `0x0B-0x0E`: `KDF_MEMORY` (`65536`)
+    - `0x0F-0x12`: `KDF_TIME` (`3`)
+    - `0x13-0x14`: `KDF_PARALLEL` (`4`)
+    - `0x15`: `SALT_LEN` (`16`)
+    - `0x16-0x25`: `SALT` (16B)
+    - `0x26-0x31`: `DEK_NONCE` (12B)
+    - `0x32-0x51`: `WRAPPED_DEK` (32B)
+    - `0x52-0x61`: `DEK_TAG` (16B)
+    - `0x62-0x69`: `PAYLOAD_LEN` (8B)
+    - `0x6A-0x75`: `PAYLOAD_NONCE` (12B)
+    - `0x76-0x85`: `PAYLOAD_TAG` (16B)
+    - `0x86`: Payload ciphertext start offset.
+  - **Round-Trip Fidelity**: Verifies serialization and deserialization across all fields.
+  - **AAD Slicing**: Validates exact 38-byte `AAD_DEK` and 18-byte `AAD_PAYLOAD` extraction.
+  - **Validation & Rejection**: Verifies rejection of bad magic, unsupported versions, bad KDF ID, and truncated headers.
+
+### 2.11 Vault Service & Persistence Tests (M4)
+- `tests/test_vault_service.py` (14 tests):
+  - **Vault Creation & Unlock**: Verifies creation of `.svault` file, file size calculation (134 + payload), and unlock with correct password.
+  - **Natural Wrong-Password Detection**: Verifies that incorrect passwords trigger authenticated DEK unwrap failure and raise `AuthenticationError`.
+  - **Input Bounds**: Verifies empty passwords raise `InvalidPasswordInputError`.
+  - **Corruption Rejection**: Verifies fail-secure rejection of corrupted magic, corrupted wrapped DEK, corrupted DEK tag, corrupted payload ciphertext, corrupted payload tag, and truncated payload bytes.
+  - **Atomic Persistence**: Verifies `.tmp` file is safely renamed and no temporary file remains.
+  - **Security Secrecy Scan**: Verifies that the `.svault` file does NOT contain master passwords, raw DEK bytes, raw KEK bytes, or plaintext JSON strings.
+  - **Session Locking**: Verifies that `lock()` zeroes mutable DEK buffers and clears payload data.
+
 ---
 
 ## 3. Future Test Suites (Scheduled per Roadmap)
 
-- **M4 (Cryptographic Vault)**: AES-256-GCM AEAD round-trip, AAD binding, 134-byte fixed header packing, atomic replace, bit-flip tamper detection.
 - **M5 (Credential CRUD)**: In-memory credential CRUD, search/filtering, JSON schema serialization.
 - **M7 (Session & Auto-Lock)**: 10-minute inactivity timer expiration, activity event reset, lock memory purging.
 - **M10 (Clipboard & Export)**: 30-second clipboard watchdog clearing, CSV export with warning.
@@ -117,4 +158,4 @@ All tests are executed using pytest:
 # Run full test suite
 .venv\Scripts\pytest.exe -v
 ```
-*Current test status: 108 passed, 0 failed.*
+*Current test status: 152 passed, 0 failed.*

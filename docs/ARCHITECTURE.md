@@ -106,38 +106,50 @@ SecureVault is built on five core architectural principles:
 - **Boundaries**:
   - Operates purely in-memory; does not persist session tokens or cache credentials across application restarts.
 
-### 3.4 Vault Manager (`app.core.vault`)
+### 3.4 Vault Service & Decrypted Vault (`app.services.vault_service`)
 - **Responsibilities**:
-  - Maintain the active in-memory repository of credential items while unlocked.
-  - Provide CRUD APIs: `create_item`, `get_item`, `update_item`, `delete_item`, `list_items`.
-  - Provide fast querying and text matching across titles, usernames, categories, and notes.
-  - Track whether the vault has unsaved modifications ("dirty" state).
-  - Prepare normalized JSON payload structures for encryption by the Cryptography Layer and persistence by the Storage Layer.
+  - Orchestrate encrypted vault creation (`create_vault`), loading, unlocking (`unlock_vault`), and locking (`lock_vault`).
+  - Manage the in-memory `DecryptedVault` session containing:
+    - Parsed JSON payload envelope (`schema_version`, `vault_id`, `created_at`, `updated_at`, `items`).
+    - Transient mutable `bytearray` DEK buffer.
+    - Verified `VaultHeader` metadata.
+  - Coordinate natural wrong-password detection through authenticated AES-256-GCM DEK unwrapping failure.
+  - Execute lock sequence with best-effort in-place zeroing of the active DEK buffer.
 - **Boundaries**:
-  - Does not directly write to the file system; delegates encrypted payloads to the Storage Layer.
-  - Does not manage cryptographic primitives; delegates encryption/decryption to the Cryptography Layer.
+  - Does not render UI directly; interfaces with `LockedView` and `UnlockedView`.
+  - Delegates low-level AES-GCM primitives to `app.crypto.encryption` and atomic file I/O to `app.storage.vault_file`.
 
 ### 3.5 Cryptography Layer (`app.crypto`)
 - **Responsibilities**:
-  - Wrap vetted cryptographic libraries (`argon2-cffi`, `cryptography`).
-  - Execute Argon2id key derivation using standardized parameters (memory, iterations, parallelism, salt).
-  - Perform authenticated symmetric encryption and decryption using AES-256-GCM.
-  - Generate cryptographically secure random bytes for salts, nonces, and keys using the OS CSPRNG (`secrets` module).
-  - Provide best-effort memory zeroing helpers (`bytearray` overwrite) for sensitive mutable buffers.
+  - Encapsulate vetted cryptographic libraries (`argon2-cffi`, `cryptography`).
+  - **Argon2id KDF (`app.crypto.kdf`)**: Execute RFC 9106 key derivation using production parameters (64 MiB RAM, 3 iterations, 4 lanes, 16B salt -> 32B KEK).
+  - **AES-256-GCM Primitives (`app.crypto.encryption`)**:
+    - `generate_dek() -> bytes`: Uniform random 32-byte key via `secrets.token_bytes(32)`.
+    - `generate_nonce(size=12) -> bytes`: Fresh CSPRNG 96-bit nonces.
+    - `wrap_dek` / `unwrap_dek`: AES-256-GCM key wrapping authenticated with 38-byte `AAD_DEK`.
+    - `encrypt_payload` / `decrypt_payload`: AES-256-GCM authenticated encryption bound with 18-byte `AAD_PAYLOAD`.
+    - `zero_buffer`: In-place zeroing of mutable buffers.
 - **Boundaries**:
   - Strictly independent of the GUI, file paths, and application domain models.
   - Operates exclusively on raw byte buffers (`bytes`, `bytearray`).
 
 ### 3.6 Storage Layer (`app.storage`)
 - **Responsibilities**:
-  - Resolve canonical storage paths (`%LOCALAPPDATA%\SecureVault\vault.svault` on Windows, `~/.local/share/securevault/vault.svault` on Linux).
-  - Read and write binary envelopes containing headers, metadata, and ciphertexts.
-  - Implement atomic write semantics:
-    1. Write to a temporary file (`vault.svault.tmp`) in the target directory.
-    2. Flush and synchronize file buffers (`os.fsync`).
-    3. Atomically replace the destination file using `os.replace`.
+  - **134-byte Binary Envelope (`app.storage.vault_format`)**:
+    - Enforce exact 134-byte (`0x86`) static binary header using Big-Endian struct packing.
+    - Validate `MAGIC` (`b"SVAULT01"`), `FORMAT_VERSION` (`1`), `KDF_ID` (`1`), and length fields.
+    - Compute and extract decoupled AAD slices:
+      - `AAD_DEK`: 38 bytes (`0x00` through `0x25`).
+      - `AAD_PAYLOAD`: 18 bytes (`0x00:0x0A` || `0x62:0x6A`).
+  - **Atomic File I/O (`app.storage.vault_file`)**:
+    - Resolve canonical storage paths (`%LOCALAPPDATA%\SecureVault\vault.svault` on Windows).
+    - Implement atomic write semantics:
+      1. Write to temporary file (`vault.svault.tmp`).
+      2. Flush user-space buffer and synchronize to disk (`os.fsync`).
+      3. Close file handle and atomically replace destination (`os.replace`).
+    - Enforce structural read verification: minimum file size (134B) and exact payload length matching against `PAYLOAD_LEN`.
 - **Boundaries**:
-  - Agnostic to vault contents. Treats the encrypted vault payload as an opaque byte stream.
+  - Agnostic to decrypted vault JSON content. Treats the encrypted vault payload as an opaque byte stream.
 
 ### 3.7 Settings Manager (`app.core.settings`)
 - **Responsibilities**:

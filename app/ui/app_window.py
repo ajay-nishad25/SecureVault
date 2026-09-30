@@ -2,7 +2,8 @@
 
 Coordinates application UI transitions based on initialization and session state:
   UNINITIALIZED -> SetupWizard -> LOCKED (LockedView)
-  INITIALIZED   -> LOCKED (LockedView)
+  LOCKED        -> LockedView  -> UNLOCKED (UnlockedView)
+  UNLOCKED      -> (Lock)      -> LOCKED (LockedView)
 """
 
 from __future__ import annotations
@@ -14,8 +15,10 @@ from app.core.config import AppConfig
 from app.core.logging import get_logger
 from app.services.authentication import AuthenticationService
 from app.services.initialization import InitializationService
+from app.services.vault_service import DecryptedVault, VaultService
 from app.ui.locked_view import LockedView
 from app.ui.setup.wizard import SetupWizard
+from app.ui.unlocked_view import UnlockedView
 
 logger = get_logger("ui.app_window")
 
@@ -28,10 +31,12 @@ class ApplicationController:
         config: AppConfig | None = None,
         init_service: InitializationService | None = None,
         auth_service: AuthenticationService | None = None,
+        vault_service: VaultService | None = None,
     ) -> None:
         self.config = config or AppConfig()
         self.init_service = init_service or InitializationService(self.config)
         self.auth_service = auth_service or AuthenticationService()
+        self.vault_service = vault_service or VaultService(self.config)
         self.current_window = None
 
     def start(self) -> int:
@@ -48,7 +53,10 @@ class ApplicationController:
             return self._show_locked_view()
 
     def _launch_setup_wizard(self) -> int:
-        wizard = SetupWizard(init_service=self.init_service)
+        wizard = SetupWizard(
+            init_service=self.init_service,
+            vault_service=self.vault_service,
+        )
         self.current_window = wizard
 
         result = wizard.exec()
@@ -63,13 +71,31 @@ class ApplicationController:
         locked_view = LockedView(
             init_service=self.init_service,
             auth_service=self.auth_service,
+            vault_service=self.vault_service,
         )
         self.current_window = locked_view
 
-        # Wire reset signal to relaunch wizard
+        # Wire signals
         locked_view.reset_requested.connect(self._on_dev_reset)
+        locked_view.vault_unlocked.connect(self._on_vault_unlocked)
         locked_view.show()
         return 0
+
+    def _show_unlocked_view(self, vault: DecryptedVault) -> int:
+        login_id = self.init_service.get_login_id() or "Default User"
+        unlocked_view = UnlockedView(vault=vault, login_id=login_id)
+        self.current_window = unlocked_view
+
+        # Wire lock action back to locked state
+        unlocked_view.lock_requested.connect(self._show_locked_view)
+        unlocked_view.show()
+        return 0
+
+    def _on_vault_unlocked(self, vault: DecryptedVault) -> None:
+        logger.info("Vault unlocked successfully. Transitioning to UNLOCKED view.")
+        if self.current_window:
+            self.current_window.close()
+        self._show_unlocked_view(vault)
 
     def _on_dev_reset(self) -> None:
         logger.info("Reset requested. Relaunching First-Run Setup Wizard.")
@@ -79,6 +105,7 @@ class ApplicationController:
 def run_gui(
     config: AppConfig | None = None,
     auth_service: AuthenticationService | None = None,
+    vault_service: VaultService | None = None,
 ) -> int:
     """Launch the PySide6 desktop GUI application.
 
@@ -92,7 +119,11 @@ def run_gui(
     app.setApplicationName("SecureVault")
     app.setApplicationDisplayName("SecureVault")
 
-    controller = ApplicationController(config=config, auth_service=auth_service)
+    controller = ApplicationController(
+        config=config,
+        auth_service=auth_service,
+        vault_service=vault_service,
+    )
     controller.start()
 
     # If a window is currently visible, start event loop

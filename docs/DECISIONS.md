@@ -136,3 +136,18 @@ Each record details the context, decision, and consequences.
 - **Consequences**:
   - *Positive*: An attacker with access to the vault file has only the ciphertext and wrapped DEK to target; there is zero separate verifier artifact to attack. Eliminates credential desynchronization.
   - *Trade-off*: Authentication cannot be verified without performing the full Argon2id key derivation and attempting cryptographic unwrapping against the vault header.
+
+---
+
+## ADR-013: Decoupled AAD Envelope Architecture for Atomic Key Rotation
+- **Status**: Accepted (Milestone M4)
+- **Context**: In an envelope-encrypted database, rotating the master password requires deriving a new Key Encryption Key (KEK) with a fresh salt and re-wrapping the Data Encryption Key (DEK). If the Associated Authenticated Data (AAD) for the payload ciphertext included the salt, KDF parameters, or wrapped DEK, changing the master password would invalidate the payload authentication tag, forcing re-encryption of the entire database.
+- **Decision**:
+  1. `AAD_DEK` (38 bytes) binds the public header (`MAGIC` + `FORMAT_VERSION` + `KDF_ID` + `KDF_MEMORY` + `KDF_TIME` + `KDF_PARALLEL` + `SALT_LEN` + `SALT`). Any tampering with KDF parameters or salt causes DEK unwrapping to fail.
+  2. `AAD_PAYLOAD` (18 bytes) binds only the immutable envelope prefix and length (`MAGIC` [8B] + `FORMAT_VERSION` [2B] + `PAYLOAD_LEN` [8B]).
+  3. `AAD_PAYLOAD` strictly excludes KDF parameters, salt, DEK nonce, wrapped DEK, and DEK tag.
+- **Consequences**:
+  - *Positive*: Master password rotation is atomic, instantaneous, and risk-free. Only the 134-byte file header is rewritten with the new salt and re-wrapped DEK; the large encrypted payload ciphertext is not touched or re-encrypted.
+  - *Positive*: Full cryptographic tamper detection is maintained for both key wrapping and payload bounds.
+  - *Trade-off*: Slicing non-contiguous byte ranges requires explicit offsets (`0x00:0x0A` and `0x62:0x6A`) during AAD assembly.
+

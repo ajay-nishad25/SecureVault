@@ -8,10 +8,32 @@ This package encapsulates all low-level cryptographic primitives:
   - Best-effort in-memory key hygiene
 """
 
+from app.crypto.encryption import (
+    KEY_SIZE,
+    NONCE_SIZE,
+    TAG_SIZE,
+    decrypt_payload,
+    encrypt_payload,
+    generate_dek,
+    generate_nonce,
+    unwrap_dek,
+    wrap_dek,
+    zero_buffer,
+)
 from app.crypto.kdf import KDFParameters, derive_kek, generate_salt
 
 __all__ = [
     "KDFParameters",
     "derive_kek",
     "generate_salt",
+    "generate_dek",
+    "generate_nonce",
+    "wrap_dek",
+    "unwrap_dek",
+    "encrypt_payload",
+    "decrypt_payload",
+    "zero_buffer",
+    "KEY_SIZE",
+    "NONCE_SIZE",
+    "TAG_SIZE",
 ]

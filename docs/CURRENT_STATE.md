@@ -2,10 +2,10 @@
 
 ## 1. Milestone Tracking
 
-- **Current Milestone**: `M3 — Master Authentication`
+- **Current Milestone**: `M4 — Cryptographic Vault`
 - **Status**: **Implementation Complete / Ready for Review**
 - **Target Release**: Version 1.0.0 (Windows)
-- **Next Milestone**: `M4 — Cryptographic Vault`
+- **Next Milestone**: `M5 — Credential CRUD & In-Memory Operations`
 
 ---
 
@@ -47,7 +47,7 @@
 
 ### Milestone 3 (M3 — Master Authentication Foundation)
 - **Argon2id KDF Implementation (`app/crypto/kdf.py`)**:
-  - Implemented `KDFParameters` data class strictly adhering to M0 cryptographic specifications:
+  - Implemented `KDFParameters` dataclass strictly adhering to M0 cryptographic specifications:
     - `memory_cost = 65536` KiB (64 MiB)
     - `time_cost = 3` iterations
     - `parallelism = 4` threads
@@ -60,47 +60,73 @@
 - **Authentication Service Abstraction (`app/services/authentication.py`)**:
   - Implemented `AuthenticationService` defining the security boundary:
     `UI -> AuthenticationService -> KDF -> 32-byte KEK`.
-  - Zero-Verifier Architecture: No password verifier, hash file, or persistent auth marker is written. Authentication success in M3 represents successful key derivation; M4 will use this derived KEK to attempt unwrapping the encrypted DEK.
+  - Zero-Verifier Architecture: No password verifier, hash file, or persistent auth marker is written. Authentication success in M3 represents successful key derivation; M4 connects this derived KEK to unwrap the encrypted DEK.
   - Transient In-Memory Session Management: Provides `clear_session()` with best-effort zeroing (`kek_bytes[:] = b'\x00' * len(kek_bytes)`).
-- **Asynchronous UI Unlocking (`app/ui/locked_view.py`)**:
-  - Enhanced `LockedView` with master password entry field, show/hide visibility toggle, and "Unlock Vault" action.
-  - Created `AuthWorker(QThread)` to perform CPU/memory-intensive Argon2id derivation off the Qt main event loop, preventing UI freezes while maintaining clean thread boundaries.
-  - Clear user feedback: informs user that KEK was successfully derived and ready for M4 encrypted vault unwrapping.
+
+### Milestone 4 (M4 — Cryptographic Vault Implementation)
+- **AES-256-GCM Primitives (`app/crypto/encryption.py`)**:
+  - DEK Generation: `generate_dek() -> bytes` producing 32 uniform random bytes via `secrets.token_bytes(32)`.
+  - Nonce Generation: `generate_nonce(size: int = 12) -> bytes` ensuring 96-bit CSPRNG uniqueness.
+  - DEK Wrapping / Unwrapping: `wrap_dek(kek, dek, aad_dek)` and `unwrap_dek(kek, nonce, wrapped_dek, tag, aad_dek)` using AES-256-GCM under the derived KEK.
+  - Payload Encryption / Decryption: `encrypt_payload(dek, plaintext, aad_payload)` and `decrypt_payload(dek, nonce, ciphertext, tag, aad_payload)`.
+  - Memory Hygiene: `zero_buffer(buf)` providing in-place mutable zeroing.
+- **134-byte Fixed Binary Header (`app/storage/vault_format.py`)**:
+  - Exact 134-byte (`0x86`) static header layout conforming byte-by-byte to `docs/DATA_FORMAT.md`.
+  - Big-Endian byte order for all multi-byte integers (`FORMAT_VERSION`, `KDF_MEMORY`, `KDF_TIME`, `KDF_PARALLEL`, `PAYLOAD_LEN`).
+  - Strict validation of MAGIC (`b"SVAULT01"`), format version (`1`), KDF ID (`1`), and length fields.
+  - Golden test fixture ensuring byte offsets cannot regress silently.
+  - Exact AAD slicing:
+    - `AAD_DEK`: 38 bytes (`file_bytes[0x00:0x26]`).
+    - `AAD_PAYLOAD`: 18 bytes (`file_bytes[0x00:0x0A] || file_bytes[0x62:0x6A]`).
+- **Atomic Persistence (`app/storage/vault_file.py`)**:
+  - Implemented `write_vault_file` using temporary file (`vault.svault.tmp`), buffer flush, `os.fsync`, and atomic `os.replace`.
+  - Implemented `read_vault_file` with truncation checks and exact `PAYLOAD_LEN` matching against header metadata.
+- **Vault Orchestration (`app/services/vault_service.py`)**:
+  - `create_vault`: Creates empty JSON envelope, generates DEK, wraps under KEK, encrypts payload, writes atomic file.
+  - `unlock_vault`: Reads file, extracts KDF parameters, derives KEK, unwraps DEK (natural wrong-password detection), decrypts payload, parses JSON envelope into active `DecryptedVault`.
+  - `lock_vault`: In-place zeroing of mutable DEK buffer and dereferencing of decrypted payload.
+- **UI Integration (`app/ui/setup/wizard.py`, `app/ui/locked_view.py`, `app/ui/unlocked_view.py`, `app/ui/app_window.py`)**:
+  - Setup Wizard now creates the real encrypted `vault.svault` file upon completing onboarding.
+  - `LockedView` uses background `AuthWorker(QThread)` to unlock and decrypt vault without freezing the event loop.
+  - `UnlockedView` placeholder displays unlocked status, vault ID, item count, and a "Lock Vault" button.
+  - `ApplicationController` routes `UNINITIALIZED -> SetupWizard -> LOCKED -> UnlockedView -> LOCKED`.
 - **Files Added / Modified**:
-  - *Added*: `app/crypto/kdf.py`, `tests/test_kdf.py`, `app/services/authentication.py`, `tests/test_authentication_service.py`
-  - *Modified*: `requirements.txt`, `pyproject.toml`, `app/crypto/__init__.py`, `app/services/__init__.py`, `app/core/exceptions.py`, `app/ui/locked_view.py`, `app/ui/app_window.py`, `tests/test_ui_locked_view.py`
-- **Testing**: 108 tests passing (29 new tests covering KDF determinism, salt randomness, input validation, service lifecycle, thread execution, and UI signal emissions).
+  - *Added*: `app/crypto/encryption.py`, `app/storage/vault_format.py`, `app/storage/vault_file.py`, `app/services/vault_service.py`, `app/ui/unlocked_view.py`, `tests/test_encryption.py`, `tests/test_vault_format.py`, `tests/test_vault_service.py`.
+  - *Modified*: `requirements.txt`, `pyproject.toml`, `app/crypto/__init__.py`, `app/storage/__init__.py`, `app/services/__init__.py`, `app/core/exceptions.py`, `app/services/initialization.py`, `app/ui/setup/wizard.py`, `app/ui/locked_view.py`, `app/ui/app_window.py`, `tests/test_ui_locked_view.py`, `tests/test_flow.py`.
+- **Testing**: 152 tests passing (44 new tests covering AES-256-GCM primitives, 134-byte golden binary layout, file tampering/corruption, atomic persistence, security secrecy, and end-to-end unlock).
 
 ---
 
-## 3. What is Intentionally NOT Implemented in M3
+## 3. What is Intentionally NOT Implemented in M4
 
 In strict adherence to the milestone boundaries:
-- **AES-256-GCM Vault Encryption**: Deferred to M4.
-- **DEK Generation & Key Wrapping**: Deferred to M4.
-- **`.svault` Binary File Serialization/Deserialization**: Deferred to M4.
-- **Credential Storage & CRUD**: Deferred to M5.
+- **Credential CRUD (Create, Read, Update, Delete)**: Deferred to M5.
+- **Credential Management UI**: Deferred to M5/M6.
+- **Password Generator**: Deferred to M6.
 - **Auto-Lock Timers**: Deferred to M7.
+- **Search & Filtering**: Deferred to M8.
 - **Clipboard Management**: Deferred to M10.
-- **Persistent Password Verifier / Hash Database**: Explicitly prohibited by architecture (Zero-Verifier design, see ADR-012).
+- **CSV Export**: Deferred to M10.
+- **Password Rotation UI**: Deferred to M11 (underlying AAD format is already decoupled in M4).
 
 ---
 
 ## 4. Current Task
-M3 review and verification.
+M4 review and verification.
 
 ---
 
 ## 5. Next Task
-M4 — Cryptographic Vault (AES-256-GCM, 134-byte binary header, DEK wrapping, atomic persistence).
+M5 — Credential CRUD & In-Memory Operations.
 
 ---
 
 ## 6. Known Issues / Unresolved Items
-- **None**: All M3 master authentication deliverables are implemented and tested with 100% pass rate (108/108 passing tests).
+- **None**: All M4 cryptographic vault deliverables are implemented and tested with 100% pass rate (152/152 passing tests).
 
 ---
 
 ## 7. Important Decisions Summary
 - **ADR-001 through ADR-011**: Foundational language, GUI, offline, cryptographic, storage, and logging decisions.
-- **ADR-012: Zero-Verifier / KEK-Only Master Authentication**: SecureVault deliberately does NOT store a password hash or verifier on disk. Vault unlocking relies strictly on the mathematical ability of the derived KEK to decrypt the wrapped DEK in M4.
+- **ADR-012**: Zero-Verifier / KEK-Only Master Authentication.
+- **ADR-008 & M4 Architecture**: Decoupled AAD design (`AAD_PAYLOAD` excludes salt and KDF fields) guarantees future master password rotation does not require re-encrypting the vault payload.

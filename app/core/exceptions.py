@@ -23,8 +23,24 @@ class StorageError(SecureVaultError):
     """Raised when file storage or persistence operations encounter an error."""
 
 
+class VaultNotFoundError(StorageError):
+    """Raised when the specified vault file does not exist on disk."""
+
+
+class CorruptedVaultError(StorageError):
+    """Raised when vault binary data, headers, or payload bounds are corrupted."""
+
+
+class InvalidVaultFormatError(CorruptedVaultError):
+    """Raised when vault magic bytes or format version are invalid or unsupported."""
+
+
 class SecurityError(SecureVaultError):
     """Raised when a security boundary, policy, or session constraint is violated."""
+
+
+class DecryptionError(SecurityError):
+    """Raised when cryptographic decryption or authentication tag verification fails."""
 
 
 class AuthenticationError(SecurityError):
@@ -45,3 +61,4 @@ class InvalidPasswordInputError(SecurityError):
 
 class ValidationError(SecureVaultError):
     """Raised when general input validation fails."""
+

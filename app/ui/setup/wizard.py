@@ -32,6 +32,7 @@ from app.core.validation import (
     validate_master_password,
 )
 from app.services.initialization import InitializationService
+from app.services.vault_service import VaultService
 
 logger = get_logger("ui.setup.wizard")
 
@@ -277,10 +278,15 @@ class MasterPasswordPage(QWizardPage):
         is_valid, _ = validate_master_password(pwd, confirm)
         return is_valid
 
+    def get_password(self) -> str:
+        """Return the master password text."""
+        return self.password_input.text()
+
     def clear_sensitive_inputs(self) -> None:
         """Clear password text from line edit controls to minimize memory residence."""
         self.password_input.clear()
         self.confirm_input.clear()
+
 
 
 class FinalWarningPage(QWizardPage):
@@ -359,9 +365,14 @@ class SetupWizard(QWizard):
 
     setup_completed = Signal(str)  # Emits login_id upon successful setup
 
-    def __init__(self, init_service: InitializationService | None = None) -> None:
+    def __init__(
+        self,
+        init_service: InitializationService | None = None,
+        vault_service: VaultService | None = None,
+    ) -> None:
         super().__init__()
         self._init_service = init_service or InitializationService()
+        self._vault_service = vault_service or VaultService(self._init_service.config)
         self._setup_successful: bool = False
 
         self.setWindowTitle("SecureVault — First-Run Setup")
@@ -390,18 +401,33 @@ class SetupWizard(QWizard):
         """Retrieve the configured Login ID from the login ID page."""
         return self.login_id_page.get_login_id()
 
+    def get_password(self) -> str:
+        """Retrieve the master password entered in the password page."""
+        return self.password_page.get_password()
+
     def accept(self) -> None:
         """Handle wizard completion."""
         login_id = self.get_login_id()
-        logger.info("Setup wizard completed. Initializing application for user '%s'.", login_id)
+        password = self.get_password()
+        logger.info("Setup wizard completed. Creating encrypted vault and initializing for user '%s'.", login_id)
 
-        # Clear sensitive password inputs from UI memory
-        self.password_page.clear_sensitive_inputs()
+        try:
+            # Create encrypted .svault file if master password was configured
+            if password:
+                self._vault_service.create_vault(password)
 
-        # Initialize non-sensitive application state
-        self._init_service.initialize(login_id)
-        self._setup_successful = True
-        self.setup_completed.emit(login_id)
+            # Initialize non-sensitive application state
+            self._init_service.initialize(login_id)
+            self._setup_successful = True
+            self.setup_completed.emit(login_id)
+        except Exception as err:
+            logger.error("Failed to complete setup and create vault: %s", err)
+            self._setup_successful = False
+            raise
+        finally:
+            # Clear sensitive password inputs from UI memory immediately
+            self.password_page.clear_sensitive_inputs()
+            password = ""
 
         super().accept()
 

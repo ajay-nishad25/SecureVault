@@ -47,9 +47,15 @@ class InitializationService:
         self._init_file: Path = self._data_dir / INIT_STATE_FILENAME
 
     @property
+    def config(self) -> AppConfig:
+        """Return the active application configuration."""
+        return self._config
+
+    @property
     def init_file_path(self) -> Path:
         """Return the path to the initialization state file."""
         return self._init_file
+
 
     def is_initialized(self) -> bool:
         """Check whether the application has completed initial first-run setup.
@@ -122,7 +128,7 @@ class InitializationService:
             raise StorageError(f"Could not persist initialization state: {err}") from err
 
     def reset(self) -> None:
-        """Remove the initialization marker.
+        """Remove the initialization marker and local vault file.
 
         Used for testing, reset flows, or cancelling setup.
         """
@@ -133,3 +139,15 @@ class InitializationService:
             except OSError as err:
                 logger.error("Failed to reset initialization state: %s", err)
                 raise StorageError(f"Could not remove initialization file: {err}") from err
+
+        # Also remove local vault file if present in dev reset
+        vault_path = self._config.vault_path
+        tmp_vault = vault_path.with_name(f"{vault_path.name}.tmp")
+        for f in (vault_path, tmp_vault):
+            if f.exists():
+                try:
+                    f.unlink()
+                    logger.info("Removed vault file '%s' on reset.", f.name)
+                except OSError as err:
+                    logger.warning("Could not remove '%s' on reset: %s", f.name, err)
+

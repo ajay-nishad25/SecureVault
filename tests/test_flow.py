@@ -72,7 +72,11 @@ def test_full_m2_onboarding_lifecycle() -> None:
         assert init_service.get_login_id() == "alice"
         assert init_service.get_session_state() == SessionState.LOCKED
 
-        # 4. Verify no secret leak in state file
+        # 4. Verify vault.svault created and no secret leak in state file
+        vault_file = data_dir / "vault.svault"
+        assert vault_file.exists()
+        assert vault_file.stat().st_size >= 134
+
         state_file = data_dir / "init_state.json"
         content = state_file.read_text(encoding="utf-8")
         assert "MasterPassword2026!" not in content
@@ -83,3 +87,25 @@ def test_full_m2_onboarding_lifecycle() -> None:
         controller.start()
         assert controller.current_window is not None
         assert controller.current_window.windowTitle() == "SecureVault — Vault Locked"
+
+        # 6. Unlock via LockedView
+        locked_view = controller.current_window
+        locked_view.password_input.setText("MasterPassword2026!")
+        locked_view._on_unlock_clicked()
+        if locked_view._worker:
+            locked_view._worker.wait(3000)
+        app = QApplication.instance()
+        if app:
+            app.processEvents()
+
+        # Controller must have transitioned to UnlockedView
+        assert controller.current_window is not None
+        assert controller.current_window.windowTitle() == "SecureVault — Vault Unlocked"
+
+        # 7. Lock via UnlockedView
+        unlocked_view = controller.current_window
+        unlocked_view._on_lock_clicked()
+        if app:
+            app.processEvents()
+        assert controller.current_window.windowTitle() == "SecureVault — Vault Locked"
+

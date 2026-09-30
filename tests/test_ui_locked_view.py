@@ -102,7 +102,7 @@ def test_locked_view_unlock_derives_kek(
 
     assert len(auth_results) == 1
     assert auth_results[0].success is True
-    assert "Master KEK derived successfully" in view.status_label.text()
+    assert "Vault unlocked successfully" in view.status_label.text()
     # Ensure input field was cleared
     assert view.password_input.text() == ""
 
