@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 import pytest
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QApplication, QLineEdit, QPushButton
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -262,3 +263,138 @@ def test_app_controller_initialized_flow(
         code = controller.start()
         assert code == 0
         mock_locked.assert_called_once()
+
+
+def test_locked_view_has_no_bottom_buttons(
+    qapp: QApplication, isolated_init_service: InitializationService
+) -> None:
+    """Verify LockedView has no Unlock Vault or Exit bottom buttons."""
+    isolated_init_service.initialize("test_user")
+    view = LockedView(init_service=isolated_init_service)
+
+    assert not hasattr(view, "unlock_btn")
+    assert not hasattr(view, "exit_btn")
+    assert len(view.findChildren(QPushButton)) == 0
+
+
+def test_locked_view_password_field_initial_focus(
+    qapp: QApplication, isolated_init_service: InitializationService
+) -> None:
+    """Verify password field receives focus initially when LockedView opens."""
+    isolated_init_service.initialize("test_user")
+    view = LockedView(init_service=isolated_init_service)
+    view.show()
+    qapp.processEvents()
+
+    assert view.password_input.hasFocus() or view.focusWidget() == view.password_input
+    view.close()
+
+
+def test_locked_view_failed_authentication_returns_focus(
+    qapp: QApplication,
+    isolated_init_service: InitializationService,
+    fast_vault_service: VaultService,
+    fast_auth_service: AuthenticationService,
+) -> None:
+    """Verify failed authentication attempt clears password and automatically restores focus."""
+    isolated_init_service.initialize("test_user")
+    view = LockedView(
+        init_service=isolated_init_service,
+        auth_service=fast_auth_service,
+        vault_service=fast_vault_service,
+    )
+    view.show()
+    qapp.processEvents()
+
+    # Attempt 1: wrong password
+    view.password_input.setText("WrongPassword1!")
+    view.password_input.returnPressed.emit()
+
+    if view._worker:
+        view._worker.wait(2000)
+    qapp.processEvents()
+
+    assert "Incorrect master password" in view.status_label.text()
+    assert view.password_input.text() == ""
+    assert view.password_input.hasFocus() or view.focusWidget() == view.password_input
+
+    # Attempt 2: second wrong password without manual click
+    view.password_input.setText("WrongPassword2!")
+    view.password_input.returnPressed.emit()
+
+    if view._worker:
+        view._worker.wait(2000)
+    qapp.processEvents()
+
+    assert "Incorrect master password" in view.status_label.text()
+    assert view.password_input.text() == ""
+    assert view.password_input.hasFocus() or view.focusWidget() == view.password_input
+    view.close()
+
+
+def test_locked_view_enter_key_triggers_unlock(
+    qapp: QApplication,
+    isolated_init_service: InitializationService,
+    fast_vault_service: VaultService,
+    fast_auth_service: AuthenticationService,
+) -> None:
+    """Verify pressing Enter in the password input successfully triggers unlock."""
+    isolated_init_service.initialize("test_user")
+    view = LockedView(
+        init_service=isolated_init_service,
+        auth_service=fast_auth_service,
+        vault_service=fast_vault_service,
+    )
+    view.show()
+    qapp.processEvents()
+
+    unlocked_vaults = []
+    view.vault_unlocked.connect(unlocked_vaults.append)
+
+    view.password_input.setText("ValidPassword123!")
+    view.password_input.returnPressed.emit()
+
+    if view._worker:
+        view._worker.wait(2000)
+    qapp.processEvents()
+
+    assert len(unlocked_vaults) == 1
+    assert "Vault decrypted and authenticated successfully." in view.status_label.text()
+    view.close()
+
+
+def test_unlocked_view_close_event_cleans_up_session_and_clipboard(
+    qapp: QApplication,
+    fast_vault_service: VaultService,
+) -> None:
+    """Verify closing UnlockedView stops session inactivity and clears owned clipboard."""
+    from app.services.clipboard_service import ClipboardService
+    from app.services.session_manager import SessionManager
+    from app.ui.unlocked_view import UnlockedView
+
+    vault = fast_vault_service.unlock_vault("ValidPassword123!")
+    session_mgr = SessionManager(countdown_seconds=120)
+    session_mgr.start_session()
+    assert session_mgr.is_active is True
+
+    clipboard_svc = ClipboardService.instance()
+    clipboard_svc.copy_password("SecretPass123!")
+    assert clipboard_svc.has_ownership() is True
+    assert clipboard_svc.is_tracking() is True
+
+    view = UnlockedView(
+        vault=vault,
+        session_manager=session_mgr,
+        clipboard_service=clipboard_svc,
+    )
+    view.show()
+    qapp.processEvents()
+
+    # Trigger window close
+    view.closeEvent(QCloseEvent())
+
+    assert session_mgr.is_active is False
+    assert clipboard_svc.is_tracking() is False
+    assert clipboard_svc.has_ownership() is False
+    view.close()
+

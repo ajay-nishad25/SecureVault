@@ -13,12 +13,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from PySide6.QtCore import QThread, Qt, Signal
+from PySide6.QtGui import QCloseEvent, QShowEvent
 from PySide6.QtWidgets import (
     QFormLayout,
-    QHBoxLayout,
     QLabel,
     QLineEdit,
-    QPushButton,
     QVBoxLayout,
     QWidget,
 )
@@ -192,21 +191,19 @@ class LockedView(QWidget):
         # grouped toward the top of the window.
         layout.addStretch()
 
-        # Action buttons
-        btn_layout = QHBoxLayout()
-
-        self.unlock_btn = QPushButton("Unlock Vault")
-        self.unlock_btn.setDefault(True)
-        self.unlock_btn.clicked.connect(self._on_unlock_clicked)
-        btn_layout.addWidget(self.unlock_btn)
-
-        self.exit_btn = QPushButton("Exit")
-        self.exit_btn.clicked.connect(self.close)
-        btn_layout.addWidget(self.exit_btn)
-
-        layout.addLayout(btn_layout)
-
         self.setLayout(layout)
+        self.password_input.setFocus()
+
+    def showEvent(self, event: QShowEvent) -> None:
+        """Ensure password field receives focus whenever the view is shown."""
+        super().showEvent(event)
+        self.password_input.setFocus()
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Wait for any active background worker thread on close."""
+        if self._worker and self._worker.isRunning():
+            self._worker.wait(1000)
+        super().closeEvent(event)
 
     def center_on_screen(self) -> None:
         """Center the window on the primary screen."""
@@ -245,6 +242,7 @@ class LockedView(QWidget):
             self.status_label.setStyleSheet(
                 "color: #ee5555; font-weight: bold;"
             )
+            self.password_input.setFocus()
             return
 
         self._set_ui_busy(True)
@@ -314,8 +312,9 @@ class LockedView(QWidget):
             )
 
             self.authenticated.emit(auth_res)
+            self.password_input.setFocus()
 
     def _set_ui_busy(self, busy: bool) -> None:
         self.password_input.setEnabled(not busy)
-        self.unlock_btn.setEnabled(not busy)
-        self.exit_btn.setEnabled(not busy)
+        if not busy:
+            self.password_input.setFocus()

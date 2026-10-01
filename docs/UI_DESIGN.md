@@ -57,15 +57,16 @@ The user experience adheres to four core tenets:
 
 ---
 
-### Screen 2: Locked View / Future Login Placeholder (`app.ui.locked_view.LockedView`)
+### Screen 2: Locked View (`app.ui.locked_view.LockedView`)
 - **Context**: Displayed when the application is in the `LOCKED` state.
 - **Components**:
   - Padlock icon and header: *"SecureVault — Locked"*.
   - User profile display: shows configured `Login ID`.
-  - Informational notice: *"State: LOCKED. Master password authentication will be enabled in Milestone 3 (M3)."*
-  - Buttons:
-    - `[ Unlock Vault ]`: Unlocks the encrypted vault using the entered master password.
-    - `[ Exit ]`: Closes the application.
+  - Master Password input field (receives initial keyboard focus and auto-regains focus upon failure).
+  - Status/feedback banner (error or progress).
+  - Unlock action: Triggered directly by pressing Enter/Return in the password field.
+  - Window exit: Handled via native Windows controls (window X) or keyboard shortcut (Alt+F4).
+  - Bottom Buttons: None (streamlined layout).
 
 ---
 
@@ -73,11 +74,9 @@ The user experience adheres to four core tenets:
 - **Context**: Displayed upon application launch when initialized.
 - **Components**:
   - SecureVault branding with a locked padlock icon.
-  - Master Password input field (auto-focused on launch).
-  - Reveal/Mask password toggle button.
-  - Action Button: `[ Unlock Vault ]` (Triggered by `Enter`).
+  - Master Password input field (auto-focused on launch; regains focus after failed attempt).
+  - Unlock action: Triggered by pressing Enter/Return.
   - Error Banner (hidden until triggered): *"Invalid master password or corrupted vault."*
-  - Bottom Action: `[ Switch Vault File... ]`.
 
 ---
 
@@ -88,7 +87,7 @@ The user experience adheres to four core tenets:
   - Scrollable credential list rendering `CredentialCardWidget` entries:
     - Title, username, and notes preview.
     - Dedicated per-entry buttons: `[ 👁 View ]`, `[ ✏️ Edit ]`, `[ 🗑 Delete ]`.
-  - Global Actions: `[ ➕ Add Credential ]`, `[ 🔒 Lock Vault ]`, `[ Exit ]`.
+  - Global Actions: `[ ➕ Add Credential ]`, `[ ⚙ Settings ]`, `[ 🔒 Lock Vault ]` (Exit handled via Windows close X / Alt+F4).
   - Smooth pixel-based scrolling (`ScrollPerPixel`) with fluid mouse-wheel navigation.
   - **Delete Confirmation Modal**:
     - Triggered by clicking `[ 🗑 Delete ]` on any card.

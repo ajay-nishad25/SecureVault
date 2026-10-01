@@ -265,7 +265,7 @@
 - **Windows Taskbar Integration**: Configured `SetCurrentProcessExplicitAppUserModelID` for native Windows taskbar icon grouping.
 - **Testing**: Added `tests/test_app_icon.py` (10 tests; total test suite: 372 tests passing).
 
-### Pre-Packaging Production Code Cleanup
+### Pre-Packaging Production Code & UI/UX Cleanup
 - **Developer Controls Removal**:
   - Removed developer reset button (`self.reset_btn = QPushButton("Reset Setup (Dev)")`) from `LockedView`.
   - Removed `reset_requested` Signal and `_on_reset()` handler from `LockedView`.
@@ -274,9 +274,13 @@
   - Sanitized setup wizard login ID placeholder to avoid dev terminology.
 - **Production Configuration Defaults**:
   - Switched default `environment` in `AppConfig` from `"development"` to `"production"`.
+- **UI/UX Polish & Button Streamlining**:
+  - **LockedView Focus Restoration**: Keyboard focus is guaranteed initially on `password_input`, and automatically restored after empty submissions or failed authentication attempts.
+  - **LockedView Buttons Removed**: Removed `[ Unlock Vault ]` and `[ Exit ]` bottom buttons. Unlock is triggered directly via pressing Enter/Return in the password field. Window exit is handled via window close (X) and Alt+F4.
+  - **Main Vault Exit Button Removed**: Removed redundant `[ Exit ]` button from `UnlockedView`. Bottom bar now cleanly presents `[ ➕ Add Credential ]`, `[ ⚙ Settings ]`, and `[ 🔒 Lock Vault ]`.
 - **Test Integrity**:
   - Maintained complete test suite and isolated testing helpers (`InitializationService.reset()` preserved for test fixtures).
-  - All 372 unit and integration tests passing; verification scripts (`verify_m7.py`, `verify_m8.py`, `verify_m10.py`) and M11 security hardening tests verified.
+  - All 377 unit and integration tests passing; verification scripts (`verify_m7.py`, `verify_m8.py`, `verify_m10.py`) and M11 security hardening tests verified.
 
 ---
 
@@ -291,7 +295,7 @@ In strict adherence to project boundaries and milestone separation:
 ---
 
 ## 4. Current Task
-Pre-packaging production cleanup COMPLETE; developer-only controls removed; test suite passing (372/372).
+Pre-packaging production cleanup & UI/UX polish COMPLETE; developer controls and redundant exit buttons removed; focus restoration verified; test suite passing (377/377).
 
 ---
 
@@ -301,7 +305,7 @@ Milestone M13 — Windows Packaging & Installer Preparation.
 ---
 
 ## 6. Known Issues / Unresolved Items
-- **None**: All production cleanup tasks implemented; 372/372 automated tests pass with 100% pass rate. Verification scripts `verify_m7.py`, `verify_m8.py`, and `verify_m10.py` pass cleanly.
+- **None**: All production cleanup and UI/UX polish tasks implemented; 377/377 automated tests pass with 100% pass rate. Verification scripts `verify_m7.py`, `verify_m8.py`, and `verify_m10.py` pass cleanly.
 
 ---
 

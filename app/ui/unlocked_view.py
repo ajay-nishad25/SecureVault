@@ -652,11 +652,6 @@ class UnlockedView(QWidget):
         self.lock_btn.clicked.connect(self._on_lock_clicked)
         btn_layout.addWidget(self.lock_btn)
 
-        self.exit_btn = QPushButton("Exit")
-        self.exit_btn.setStyleSheet("padding: 6px 12px;")
-        self.exit_btn.clicked.connect(self.close)
-        btn_layout.addWidget(self.exit_btn)
-
         layout.addLayout(btn_layout)
         self.setLayout(layout)
 

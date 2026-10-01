@@ -570,10 +570,11 @@ def test_delete_selected_button_removed_and_per_card_remains(
     assert not hasattr(view, "delete_btn")
     assert not hasattr(view, "_on_delete_clicked")
 
-    # 2. Only Add Credential, Lock Vault, and Exit buttons exist in bottom bar
+    # 2. Add Credential, Settings, and Lock Vault exist; Exit button is removed
     assert hasattr(view, "add_btn")
+    assert hasattr(view, "settings_btn")
     assert hasattr(view, "lock_btn")
-    assert hasattr(view, "exit_btn")
+    assert not hasattr(view, "exit_btn")
 
     # 3. Per-card Delete button exists on the credential card
     item = view.credential_list.item(0)
