@@ -265,6 +265,19 @@
 - **Windows Taskbar Integration**: Configured `SetCurrentProcessExplicitAppUserModelID` for native Windows taskbar icon grouping.
 - **Testing**: Added `tests/test_app_icon.py` (10 tests; total test suite: 372 tests passing).
 
+### Pre-Packaging Production Code Cleanup
+- **Developer Controls Removal**:
+  - Removed developer reset button (`self.reset_btn = QPushButton("Reset Setup (Dev)")`) from `LockedView`.
+  - Removed `reset_requested` Signal and `_on_reset()` handler from `LockedView`.
+  - Removed `_on_dev_reset()` handler and signal wire-up from `ApplicationController` (`app/ui/app_window.py`).
+  - Removed developer-facing reset advice from `LockedView` and `AuthWorker` error prompts.
+  - Sanitized setup wizard login ID placeholder to avoid dev terminology.
+- **Production Configuration Defaults**:
+  - Switched default `environment` in `AppConfig` from `"development"` to `"production"`.
+- **Test Integrity**:
+  - Maintained complete test suite and isolated testing helpers (`InitializationService.reset()` preserved for test fixtures).
+  - All 372 unit and integration tests passing; verification scripts (`verify_m7.py`, `verify_m8.py`, `verify_m10.py`) and M11 security hardening tests verified.
+
 ---
 
 ## 3. What is Intentionally NOT Implemented in M11
@@ -278,17 +291,17 @@ In strict adherence to project boundaries and milestone separation:
 ---
 
 ## 4. Current Task
-Milestone M11 (Security Hardening) COMPLETE, tested, and verified (362 tests passing).
+Pre-packaging production cleanup COMPLETE; developer-only controls removed; test suite passing (372/372).
 
 ---
 
 ## 5. Next Task
-Milestone M12 — Packaging & Distribution.
+Milestone M13 — Windows Packaging & Installer Preparation.
 
 ---
 
 ## 6. Known Issues / Unresolved Items
-- **None**: All M11 hardening tasks implemented; 362/362 automated tests pass with 100% pass rate. Verification scripts `verify_m7.py`, `verify_m8.py`, and `verify_m10.py` pass cleanly.
+- **None**: All production cleanup tasks implemented; 372/372 automated tests pass with 100% pass rate. Verification scripts `verify_m7.py`, `verify_m8.py`, and `verify_m10.py` pass cleanly.
 
 ---
 

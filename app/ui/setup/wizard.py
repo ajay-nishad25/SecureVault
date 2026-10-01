@@ -149,7 +149,7 @@ class LoginIdPage(QWizardPage):
 
         form_layout = QFormLayout()
         self.login_id_input = QLineEdit()
-        self.login_id_input.setPlaceholderText("e.g. alice, developer, or user@example.com")
+        self.login_id_input.setPlaceholderText("e.g. alice, john, or user@example.com")
         self.login_id_input.textChanged.connect(self._on_text_changed)
         form_layout.addRow("Login ID:", self.login_id_input)
         layout.addLayout(form_layout)

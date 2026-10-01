@@ -84,7 +84,7 @@ class AppConfig:
 
     app_name: str = "SecureVault"
     app_version: str = __version__
-    environment: str = "development"
+    environment: str = "production"
     data_dir: Path = get_default_data_dir()
     vault_filename: str = "vault.svault"
     settings_filename: str = "settings.json"

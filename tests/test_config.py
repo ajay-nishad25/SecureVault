@@ -12,7 +12,7 @@ def test_default_config_initialization() -> None:
     config = AppConfig()
     assert config.app_name == "SecureVault"
     assert config.app_version == "0.1.0"
-    assert config.environment == "development"
+    assert config.environment == "production"
     assert isinstance(config.data_dir, Path)
     assert config.vault_filename == "vault.svault"
     assert config.settings_filename == "settings.json"

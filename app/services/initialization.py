@@ -140,7 +140,7 @@ class InitializationService:
                 logger.error("Failed to reset initialization state: %s", err)
                 raise StorageError(f"Could not remove initialization file: {err}") from err
 
-        # Also remove local vault file if present in dev reset
+        # Also remove local vault file if present on reset
         vault_path = self._config.vault_path
         tmp_vault = vault_path.with_name(f"{vault_path.name}.tmp")
         for f in (vault_path, tmp_vault):

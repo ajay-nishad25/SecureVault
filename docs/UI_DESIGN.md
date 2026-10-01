@@ -64,8 +64,8 @@ The user experience adheres to four core tenets:
   - User profile display: shows configured `Login ID`.
   - Informational notice: *"State: LOCKED. Master password authentication will be enabled in Milestone 3 (M3)."*
   - Buttons:
-    - `[ Exit Application ]`: Closes the application.
-    - `[ Reset Setup (Dev) ]`: Clears the initialization marker to facilitate re-testing of the first-run wizard.
+    - `[ Unlock Vault ]`: Unlocks the encrypted vault using the entered master password.
+    - `[ Exit ]`: Closes the application.
 
 ---
 

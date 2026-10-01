@@ -150,7 +150,6 @@ class ApplicationController:
         self.current_window = locked_view
 
         # Wire signals
-        locked_view.reset_requested.connect(self._on_dev_reset)
         locked_view.vault_unlocked.connect(self._on_vault_unlocked)
         center_window(locked_view)
         locked_view.show()
@@ -192,10 +191,6 @@ class ApplicationController:
         if self.current_window:
             self.current_window.close()
         self._show_locked_view()
-
-    def _on_dev_reset(self) -> None:
-        logger.info("Reset requested. Relaunching First-Run Setup Wizard.")
-        self._launch_setup_wizard()
 
 
 def run_gui(

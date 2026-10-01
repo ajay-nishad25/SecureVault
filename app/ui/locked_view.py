@@ -94,10 +94,7 @@ class AuthWorker(QThread):
             result = UnlockResult(
                 success=False,
                 vault=None,
-                error=(
-                    "Encrypted vault file (vault.svault) not found on disk. "
-                    "Please click 'Reset Setup (Dev)' to create a vault."
-                ),
+                error="Encrypted vault file (vault.svault) not found on disk.",
             )
 
         except Exception as err:
@@ -117,7 +114,6 @@ class AuthWorker(QThread):
 class LockedView(QWidget):
     """View displayed when the application is initialized and locked."""
 
-    reset_requested = Signal()
     vault_unlocked = Signal(object)
     authenticated = Signal(object)
 
@@ -185,8 +181,7 @@ class LockedView(QWidget):
         # Check if encrypted vault file exists
         if not self._vault_service.is_vault_created():
             self.status_label.setText(
-                "⚠️ Encrypted vault file (vault.svault) not found.\n"
-                "Please click 'Reset Setup (Dev)' to re-run setup and initialize your vault."
+                "⚠️ Encrypted vault file (vault.svault) not found."
             )
             self.status_label.setStyleSheet(
                 "color: #d29922; font-weight: bold; font-size: 11px;"
@@ -204,13 +199,6 @@ class LockedView(QWidget):
         self.unlock_btn.setDefault(True)
         self.unlock_btn.clicked.connect(self._on_unlock_clicked)
         btn_layout.addWidget(self.unlock_btn)
-
-        self.reset_btn = QPushButton("Reset Setup (Dev)")
-        self.reset_btn.setToolTip(
-            "Delete initialization marker and vault to re-test the first-run wizard"
-        )
-        self.reset_btn.clicked.connect(self._on_reset)
-        btn_layout.addWidget(self.reset_btn)
 
         self.exit_btn = QPushButton("Exit")
         self.exit_btn.clicked.connect(self.close)
@@ -330,18 +318,4 @@ class LockedView(QWidget):
     def _set_ui_busy(self, busy: bool) -> None:
         self.password_input.setEnabled(not busy)
         self.unlock_btn.setEnabled(not busy)
-        self.reset_btn.setEnabled(not busy)
-
-    def _on_reset(self) -> None:
-        self._auth_service.clear_session()
-        self._init_service.reset()
-
-        if self._vault_service.is_vault_created():
-            try:
-                self._vault_service.config.vault_path.unlink()
-            except OSError:
-                pass
-
-        self._vault_service.lock_vault()
-        self.reset_requested.emit()
-        self.close()
+        self.exit_btn.setEnabled(not busy)

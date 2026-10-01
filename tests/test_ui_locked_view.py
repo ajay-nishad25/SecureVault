@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 import pytest
-from PySide6.QtWidgets import QApplication, QLineEdit
+from PySide6.QtWidgets import QApplication, QLineEdit, QPushButton
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
@@ -219,21 +219,24 @@ def test_app_controller_unlock_transition_with_decrypted_vault(
     assert fast_vault_service.active_vault is None
 
 
-def test_locked_view_reset_emits_signal_and_clears_state(
+def test_locked_view_has_no_developer_reset_controls(
     qapp: QApplication, isolated_init_service: InitializationService
 ) -> None:
-    """Verify that clicking reset in dev mode deletes state and fires reset_requested."""
-    isolated_init_service.initialize("reset_user")
+    """Verify that LockedView does not expose developer reset controls or signals in production."""
+    isolated_init_service.initialize("production_user")
     assert isolated_init_service.is_initialized() is True
 
     view = LockedView(init_service=isolated_init_service)
-    reset_signals = []
-    view.reset_requested.connect(lambda: reset_signals.append(True))
 
-    view._on_reset()
+    # Verify dev controls/attributes do not exist on the view
+    assert not hasattr(view, "reset_btn")
+    assert not hasattr(view, "reset_requested")
+    assert not hasattr(view, "_on_reset")
 
-    assert isolated_init_service.is_initialized() is False
-    assert len(reset_signals) == 1
+    # Verify no button on the UI mentions reset or dev
+    button_texts = [btn.text().lower() for btn in view.findChildren(QPushButton)]
+    assert not any("reset" in text for text in button_texts)
+    assert not any("dev" in text for text in button_texts)
 
 
 def test_app_controller_uninitialized_flow(

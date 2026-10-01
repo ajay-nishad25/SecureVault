@@ -95,7 +95,7 @@ SecureVault's testing architecture enforces high-reliability standards appropria
   - Verifies successful password unlock emits `vault_unlocked` Signal containing a non-None `DecryptedVault` with valid `vault_id` and `items`.
   - Verifies wrong password does NOT emit `vault_unlocked`, displays user error, and leaves vault locked.
   - Verifies `ApplicationController` transitions to `UnlockedView` with valid `DecryptedVault` on success, rejects wrong password without view transition, and transitions back to `LockedView` upon locking.
-  - Verifies clicking `Reset Setup (Dev)` emits `reset_requested` and cleans up state and vault file.
+  - Verifies absence of developer reset controls (`reset_btn`, `reset_requested`, `_on_reset`) in production `LockedView`.
   - Verifies `ApplicationController` routes uninitialized state to wizard and initialized state to locked view.
 - `tests/test_flow.py`:
   - Full end-to-end integration test: uninitialized -> cancel -> complete setup -> locked view -> wrong password rejection -> correct password unlock to `UnlockedView(vault=DecryptedVault)` -> lock back to `LockedView`.
