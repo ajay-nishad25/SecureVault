@@ -279,6 +279,31 @@ QPushButton#CardEditBtn:hover {
     background-color: #388bfd;
 }
 
+/* Copy Credential Buttons */
+QPushButton#CopyUsernameBtn, QPushButton#CopyPasswordBtn {
+    background-color: #21262d;
+    color: #c9d1d9;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+QPushButton#CopyUsernameBtn:hover, QPushButton#CopyPasswordBtn:hover {
+    background-color: #30363d;
+    color: #f0f6fc;
+    border-color: #8b949e;
+}
+
+QLabel#ViewDialogStatus {
+    font-size: 11px;
+    font-weight: bold;
+    color: #3fb950;
+    background: transparent;
+    border: none;
+}
+
 /* Radio Buttons and Checkboxes */
 QRadioButton, QCheckBox {
     background-color: transparent;
@@ -706,6 +731,31 @@ QPushButton#CardEditBtn {
 
 QPushButton#CardEditBtn:hover {
     background-color: #0860ca;
+}
+
+/* Copy Credential Buttons */
+QPushButton#CopyUsernameBtn, QPushButton#CopyPasswordBtn {
+    background-color: #f6f8fa;
+    color: #24292f;
+    border: 1px solid #d0d7de;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+QPushButton#CopyUsernameBtn:hover, QPushButton#CopyPasswordBtn:hover {
+    background-color: #eaeef2;
+    color: #0969da;
+    border-color: #afb8c1;
+}
+
+QLabel#ViewDialogStatus {
+    font-size: 11px;
+    font-weight: bold;
+    color: #1a7f37;
+    background: transparent;
+    border: none;
 }
 
 /* Radio Buttons and Checkboxes */

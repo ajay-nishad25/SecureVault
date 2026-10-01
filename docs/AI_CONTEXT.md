@@ -13,7 +13,7 @@ SecureVault is an open-source, completely offline, zero-cloud desktop password m
 - **Language**: Python 3.11+ (Runtime: Python 3.11.4 in `.venv/`)
 - **GUI Framework**: PySide6 (Qt 6 for Python)
 - **Cryptography**: `argon2-cffi` (Argon2id KDF), standard `secrets` CSPRNG, `cryptography` (AES-256-GCM AEAD, key wrapping, payload encryption)
-- **Testing**: `pytest` (329 passing tests)
+- **Testing**: `pytest` (353 passing tests)
 - **Platform**: Windows 10/11 64-bit first (`%LOCALAPPDATA%\SecureVault\`); portable design for Linux.
 
 ---
@@ -26,11 +26,11 @@ SecureVault/
 │   ├── core/             # AppConfig, Safe Logging, Domain Exceptions, Validation
 │   ├── crypto/           # Argon2id KDF (kdf.py) & AES-256-GCM (encryption.py)
 │   ├── storage/          # 134-byte binary header (vault_format.py) & atomic I/O (vault_file.py)
-│   ├── services/         # VaultService, AuthenticationService, InitializationService, CredentialService, SessionManager, SettingsService
+│   ├── services/         # VaultService, AuthenticationService, InitializationService, CredentialService, SessionManager, SettingsService, ClipboardService
 │   ├── models/           # Credential domain model (id, title, username, password, notes)
 │   └── ui/               # ApplicationController, LockedView, UnlockedView, SetupWizard, View/Edit Dialogs, SettingsDialog, ThemeManager
 │       └── setup/        # Multi-step QWizard onboarding pages
-├── tests/                # Pytest unit & integration test suites (329 tests)
+├── tests/                # Pytest unit & integration test suites (353 tests)
 ├── docs/                 # Architectural, security, and design specifications
 ├── main.py               # Application entry point (GUI launch + headless flags)
 ├── requirements.txt      # Runtime dependencies (PySide6, argon2-cffi, cryptography)
@@ -52,15 +52,16 @@ SecureVault/
   - `M6 — Main Vault UI + Search` (Complete)
   - `M7 — Session Security & Auto-Lock` (Complete / Manually Verified)
   - `M8 — Settings + Theme` (Complete / Manually Verified)
+  - `M10 — Clipboard Security` (Complete / Manually Verified)
+- **Note on M9**:
+  - `M9 — Password Generator` was permanently removed from the roadmap by user instruction.
 - **Next Milestone**:
-  - `M9 — Password Generator`
-- **Location of M8 Implementation**:
-  - `app/services/settings_service.py`: `SettingsService` managing non-sensitive `settings.json` (`theme`, `auto_lock_timeout`), atomic file persistence, safe defaults fallback.
-  - `app/ui/theme.py`: `ThemeManager` with centralized Dark and Light QSS stylesheets, runtime switching, and startup restoration.
-  - `app/ui/settings_dialog.py`: `SettingsDialog` with General tab (Dark/Light radio buttons) and Security tab (2/5/10/15m Auto-Lock & Master Password change).
-  - `app/services/vault_service.py`: `change_master_password()` re-wrapping the active DEK under a new KEK derived via Argon2id with a fresh 16-byte salt, atomically updating the header while preserving payload and vault ID.
-  - `tests/`: `test_theme.py`, `test_auto_lock_configuration.py`, `test_master_password_change.py`, `test_ui_settings_dialog.py`, `test_settings_service.py`.
-- *Do not implement M9 or M10 without user instruction.*
+  - `M11 — Security Hardening`
+- **Location of M10 Implementation**:
+  - `app/services/clipboard_service.py`: `ClipboardService` with `copy_username()`, `copy_password()`, 30s auto-clear watchdog, and strict ownership verification.
+  - `app/ui/unlocked_view.py`: `ViewCredentialDialog` with `[ Copy Username ]`, `[ Copy Password ]`, masked password, and non-sensitive status feedback.
+  - `app/ui/theme.py`: `QPushButton#CopyUsernameBtn` and `QPushButton#CopyPasswordBtn` styles in Dark and Light themes.
+  - `tests/`: `test_clipboard_service.py` (16 tests), `test_ui_clipboard.py` (8 tests).
 
 ---
 

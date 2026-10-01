@@ -111,20 +111,20 @@ Each milestone is discrete, testable, and gated by defined completion criteria.
   - 329 passing automated tests and automated verification script.
 - **Dependencies**: M7.
 
-### M9 — Password Generator (Next)
-- **Objective**: Build the cryptographically secure password generator.
-- **Key Deliverables**:
-  - Cryptographically secure password generator using `secrets` with configurable length and character sets (uppercase, lowercase, numbers, symbols).
-  - Password generation modal/dialog accessible during credential creation and editing.
-  - Visual password strength estimator.
-- **Dependencies**: M8.
+### M9 — Password Generator (Permanently Removed)
+- **Status**: Permanently removed from roadmap by user directive. Not implemented.
 
-### M10 — Clipboard Security & Auto-Clear
+### M10 — Clipboard Security & Auto-Clear (Completed)
 - **Objective**: Implement safe credential copying with auto-clear watchdog.
 - **Key Deliverables**:
-  - `ClipboardManager` copying values with temporary UI feedback and 30-second watchdog auto-clear.
-  - Safe clipboard monitoring without leaving persistent secrets in OS clipboard history.
-- **Dependencies**: M9.
+  - `ClipboardService` copying username and password values with temporary UI feedback and 30-second watchdog auto-clear (`CLIPBOARD_CLEAR_TIMEOUT_SECONDS = 30`).
+  - Strict clipboard ownership verification: checks `clipboard.text() == tracked_value` before clearing.
+  - Preserves user-replaced clipboard content; never overwrites or wipes external text.
+  - Resolves overlapping copy operations by restarting timer and updating ownership state.
+  - Immediate cleanup of owned content on session lock or application exit.
+  - ViewCredentialDialog with `[ Copy Username ]` and `[ Copy Password ]` actions and non-blocking status feedback.
+  - 353 passing automated tests across full test suite.
+- **Dependencies**: M8.
 
 ### M11 — Security Hardening
 - **Objective**: Conduct defensive code hardening across the entire application stack.

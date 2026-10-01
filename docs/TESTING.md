@@ -253,12 +253,40 @@ SecureVault's testing architecture enforces high-reliability standards appropria
   - **Master Password Form**: Verifies masked password inputs, advisory note visibility, field validation errors, success dialog, and emission of `password_changed` signal.
   - **Lock Transition**: Verifies `ApplicationController` locks vault and transitions to `LockedView` on successful master password change.
 
+### 2.16 Clipboard Security & Auto-Clear Tests (M10)
+- `tests/test_clipboard_service.py` (16 tests):
+  - **Username Copy & Auto-Clear**: Verifies `copy_username()` places string on clipboard and auto-clears on timeout.
+  - **Password Copy & Auto-Clear**: Verifies `copy_password()` places string on clipboard and auto-clears on timeout.
+  - **Ownership Protection**: Verifies that when a user copies external text before timeout, the external text is untouched.
+  - **Already Cleared Invariant**: Verifies timeout handles an already cleared clipboard gracefully.
+  - **Overlapping Copies**: Verifies copying Username then Password cancels the initial timer; latest value is tracked and cleared at 30 seconds.
+  - **Overlapping Reverse**: Verifies copying Password then Username cancels initial timer and tracks username.
+  - **Identical Copy**: Verifies re-copying the same value resets the 30-second timer.
+  - **Empty / Whitespace Rejection**: Verifies empty string and whitespace are rejected without modifying clipboard.
+  - **Session Lock Integration**: Verifies `clear_if_owned()` clears owned clipboard value when vault locks, but preserves user-replaced clipboard.
+  - **Timer Cancellation**: Verifies `cancel()` disarms timer without touching clipboard text.
+  - **Zero Sensitive Data in Logs**: Verifies via `caplog` that passwords and usernames are strictly absent from application logs.
+  - **Timeout Constant**: Verifies `CLIPBOARD_CLEAR_TIMEOUT_SECONDS = 30`.
+  - **Real Qt Clipboard**: Verifies live `QApplication.clipboard()` integration in offscreen environment.
+  - **Real Qt Ownership**: Verifies ownership checks against real Qt clipboard.
+  - **Settings Secrecy**: Verifies clipboard data is never written to `settings.json`.
+- `tests/test_ui_clipboard.py` (8 tests):
+  - **View Dialog Copy Actions**: Verifies `[ Copy Username ]` and `[ Copy Password ]` buttons in `ViewCredentialDialog`.
+  - **Password Masking Invariant**: Verifies password input remains masked (`Password` echo mode) upon copy.
+  - **Read-Only Enforcement**: Verifies all dialog inputs remain read-only.
+  - **Status Confirmation**: Verifies confirmation messages in `ViewCredentialDialog` and `UnlockedView`.
+  - **Auto-Clear Status**: Verifies status label updates when clipboard auto-clears.
+  - **Manual Lock Cleanup**: Verifies clicking Lock Vault clears owned clipboard content.
+  - **External Preservation**: Verifies locking vault preserves external user clipboard data.
+  - **Window Close Cleanup**: Verifies `closeEvent` cleans up owned clipboard.
+  - **ApplicationController Lock**: Verifies `_on_vault_locked()` transitions clear owned clipboard.
+
 ---
 
 ## 3. Future Test Suites (Scheduled per Roadmap)
 
-- **M9 (Password Generator)**: Length, character sets, entropy calculation, UI dialog.
-- **M10 (Clipboard Security)**: 30-second clipboard watchdog clearing.
+- **M11 (Security Hardening)**: Memory zeroing audits, error dialogue sanitization, and filesystem permission restrictions.
+- **M12 (Comprehensive Testing)**: Tamper injection and corruption test suites.
 
 ---
 
@@ -269,4 +297,4 @@ All tests are executed using pytest:
 # Run full test suite
 .\.venv\Scripts\python.exe -m pytest -v
 ```
-*Current test status: 329 passed, 0 failed.*
+*Current test status: 353 passed, 0 failed.*

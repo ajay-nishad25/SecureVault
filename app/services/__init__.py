@@ -11,6 +11,10 @@ This package encapsulates application-level domain and auxiliary services:
 """
 
 from app.services.authentication import AuthenticationResult, AuthenticationService
+from app.services.clipboard_service import (
+    CLIPBOARD_CLEAR_TIMEOUT_SECONDS,
+    ClipboardService,
+)
 from app.services.credential_service import CredentialService
 from app.services.initialization import InitializationService, SessionState
 from app.services.session_manager import (
@@ -50,4 +54,6 @@ __all__ = [
     "SUPPORTED_THEMES",
     "DEFAULT_AUTO_LOCK_TIMEOUT",
     "SUPPORTED_AUTO_LOCK_TIMEOUTS",
+    "ClipboardService",
+    "CLIPBOARD_CLEAR_TIMEOUT_SECONDS",
 ]

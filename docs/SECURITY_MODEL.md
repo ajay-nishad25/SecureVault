@@ -143,3 +143,14 @@ When transitioning from **UNLOCKED** to **LOCKED** (via timeout, `Ctrl+L`, or cl
 3. **Privileged Clipboard Monitoring Tools**: Third-party software running concurrently with clipboard monitoring privileges can intercept copied passwords before the 30-second clear timer fires.
 4. **Physical Access to an Already-Unlocked Session**: If an attacker accesses the machine while the vault is actively unlocked and before the inactivity timer expires, they can view credentials.
 5. **Lost Master Passwords**: Because there are **no recovery keys**, **no backdoors**, and **no cloud reset** in Version 1, a forgotten master password results in permanent loss of access.
+
+---
+
+### 7.3 Clipboard Security Architecture (Milestone M10)
+- **Supported Fields**: Usernames / Login IDs and Passwords can be explicitly copied via UI buttons (`[ Copy Username ]`, `[ Copy Password ]`).
+- **30-Second Auto-Clear Watchdog**: Every SecureVault copy arms an automatic 30-second countdown timer (`CLIPBOARD_CLEAR_TIMEOUT_SECONDS = 30`).
+- **Strict Ownership Verification**: Before clearing, `ClipboardService` compares the current OS clipboard text against the exact value SecureVault placed. It clears the clipboard if and only if the exact SecureVault value is still present.
+- **Protection of User Data**: If the user or another application replaces the clipboard during the 30-second window, SecureVault skips clearing, leaving external content completely untouched.
+- **Overlapping Copy Management**: Copying a new value immediately disarms previous timers and establishes ownership over the latest value.
+- **Session Lock & Shutdown**: Transitioning to `LOCKED` or closing the application triggers immediate `clear_if_owned()`.
+- **Zero Passive Monitoring**: SecureVault does NOT continuously monitor the OS clipboard, does NOT record clipboard history, does NOT persist clipboard data to disk or logs, and maintains no background polling.

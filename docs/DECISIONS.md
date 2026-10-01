@@ -220,3 +220,34 @@ Each record details the context, decision, and consequences.
   - *Positive*: Re-wrapping the DEK is instantaneous (constant time O(1)), regardless of vault size or credential count.
   - *Positive*: Seamless runtime theme switching with zero widget-scattered styling logic.
   - *Positive*: Settings persistence is completely safe and auditable.
+
+---
+
+## ADR-017: Milestone 10 Architecture — Centralized Clipboard Security Service, Strict Ownership Verification, and Auto-Clear Watchdog
+- **Status**: Accepted (Milestone M10)
+- **Context**: Users frequently copy usernames and passwords to the OS clipboard to paste into external applications or browsers. Operating system clipboards are globally accessible to other user-space processes and may retain unencrypted values indefinitely unless cleared. SecureVault must protect copied credential data through automated cleanup while strictly respecting user data and avoiding destructive clearing of external clipboard contents.
+- **Decision**:
+  1. **Centralized Clipboard Service (`ClipboardService`)**:
+     - All clipboard interactions are managed through `ClipboardService` (`app/services/clipboard_service.py`), eliminating scattered clipboard calls in individual UI widgets.
+     - Protects both Username and Password fields equally via explicit `copy_username()` and `copy_password()` actions.
+  2. **Strict Ownership Verification Before Clearing**:
+     - SecureVault tracks the exact value placed onto the clipboard.
+     - When the 30-second cleanup timer expires or vault lock occurs, `ClipboardService` inspects the active OS clipboard text.
+     - If the clipboard still matches the exact value SecureVault placed, it is cleared (`clipboard.clear()`).
+     - If the user has copied unrelated text in the interim, SecureVault leaves the external clipboard content untouched.
+  3. **Fixed System-Defined Auto-Clear Timer**:
+     - The cleanup timer is hardcoded to 30 seconds (`CLIPBOARD_CLEAR_TIMEOUT_SECONDS = 30`).
+     - It is deliberately non-configurable in M10 to guarantee a predictable, secure baseline.
+  4. **Overlapping Copy Management**:
+     - Initiating a subsequent copy operation immediately stops any existing timer and updates the tracked ownership state to the newest value.
+     - Stale timers are never permitted to clear newer clipboard entries.
+  5. **Session Lock and Application Exit Integration**:
+     - Locking the vault (manually, via inactivity timeout, or after master password change) immediately halts the countdown timer and executes `clear_if_owned()`.
+     - Application shutdown (`app.aboutToQuit`) executes `clear_if_owned()`.
+  6. **Zero Clipboard History or Secret Retention**:
+     - SecureVault does not monitor the clipboard, does not track clipboard history, and never persists clipboard contents to disk (`settings.json`, logs, or temporary files).
+     - Logging is strictly restricted to non-sensitive operational notifications ("SecureVault clipboard copy initiated", "SecureVault clipboard cleanup completed").
+- **Consequences**:
+  - *Positive*: Significant reduction in transient credential exposure windows without intrusive user interruption.
+  - *Positive*: Non-destructive to user workflow; external clipboard copying is never inadvertently wiped.
+  - *Positive*: Immediate cleanup on lock guarantees credentials do not outlive active vault sessions.

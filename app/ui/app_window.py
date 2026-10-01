@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QApplication, QDialog, QWidget
 from app.core.config import AppConfig, WINDOW_HEIGHT, WINDOW_WIDTH
 from app.core.logging import get_logger
 from app.services.authentication import AuthenticationService
+from app.services.clipboard_service import ClipboardService
 from app.services.initialization import InitializationService
 from app.services.session_manager import SessionManager
 from app.services.settings_service import SettingsService
@@ -49,12 +50,22 @@ class ApplicationController:
         vault_service: VaultService | None = None,
         session_manager: SessionManager | None = None,
         settings_service: SettingsService | None = None,
+        clipboard_service: ClipboardService | None = None,
     ) -> None:
         self.config = config or AppConfig()
         self.init_service = init_service or InitializationService(self.config)
         self.auth_service = auth_service or AuthenticationService()
         self.vault_service = vault_service or VaultService(self.config)
         self.settings_service = settings_service or SettingsService(self.config)
+        self.clipboard_service = clipboard_service or ClipboardService.instance()
+
+        # Connect application exit to secure clipboard cleanup
+        app = QApplication.instance()
+        if app is not None:
+            try:
+                app.aboutToQuit.connect(self.clipboard_service.clear_if_owned)
+            except Exception:
+                pass
 
         # Apply saved theme before any window is rendered
         from app.ui.theme import ThemeManager
@@ -126,6 +137,7 @@ class ApplicationController:
             vault_service=self.vault_service,
             session_manager=self.session_manager,
             settings_service=self.settings_service,
+            clipboard_service=self.clipboard_service,
         )
         self.current_window = unlocked_view
 
@@ -145,6 +157,7 @@ class ApplicationController:
         logger.info("Lock requested. Locking vault session and transitioning to LOCKED view.")
         if self.current_window and hasattr(self.current_window, "session_manager"):
             self.current_window.session_manager.stop_session()
+        self.clipboard_service.clear_if_owned()
         self.vault_service.lock_vault()
         if self.current_window:
             self.current_window.close()
@@ -160,6 +173,7 @@ def run_gui(
     auth_service: AuthenticationService | None = None,
     vault_service: VaultService | None = None,
     session_manager: SessionManager | None = None,
+    clipboard_service: ClipboardService | None = None,
 ) -> int:
     """Launch the PySide6 desktop GUI application.
 
@@ -178,6 +192,7 @@ def run_gui(
         auth_service=auth_service,
         vault_service=vault_service,
         session_manager=session_manager,
+        clipboard_service=clipboard_service,
     )
     controller.start()
 

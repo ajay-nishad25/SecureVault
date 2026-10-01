@@ -2,10 +2,11 @@
 
 ## 1. Milestone Tracking
 
-- **Current Milestone**: `M8 — Settings + Theme`
-- **Status**: **COMPLETE** (Both Phase 1 & Phase 2 Verified)
+- **Current Milestone**: `M10 — Clipboard Security`
+- **Status**: **COMPLETE** (Verified with 353 Passing Tests)
 - **Target Release**: Version 1.0.0 (Windows)
-- **Next Milestone**: `M9 — Password Generator`
+- **Next Milestone**: `M11 — Security Hardening`
+- **Note on M9**: Milestone M9 (Password Generator) was permanently removed from the roadmap by user instruction.
 
 ---
 
@@ -212,34 +213,52 @@
   - Intermediate key buffers zeroed via `zero_buffer`.
   - Displays required note: *"After successfully changing your master password, SecureVault will lock the vault and return you to the login screen. You must use your new master password to unlock the vault again."*
   - Automatically locks vault session and transitions to `LockedView` on success; requires new master password to unlock.
-- **Testing**: 329 automated tests passing across full suite (35 new M8 tests covering theme, auto-lock configuration, master password rotation, and settings dialog UI).
-- **Manual Verification**: Automated and manual verification script (`scripts/verify_m8.py`) passed all checks.
+### Milestone 10 (M10 — Clipboard Security & Auto-Clear Watchdog)
+- **Centralized Clipboard Service (`app/services/clipboard_service.py`)**:
+  - Implemented `ClipboardService` with `copy_username()`, `copy_password()`, `copy_text()`.
+  - Enforced system-defined, non-configurable 30-second cleanup timeout (`CLIPBOARD_CLEAR_TIMEOUT_SECONDS = 30`).
+  - Strict clipboard ownership verification: checks `clipboard.text() == tracked_value` before clearing.
+  - User clipboard protection: if the user copies unrelated text during the 30-second window, SecureVault leaves external text intact.
+  - Overlapping copy resolution: subsequent copies immediately cancel previous timers and track the newest value.
+  - Reject empty and whitespace values without modifying clipboard or arming timers.
+  - Session lock integration: manual lock, auto-lock timeout, and master password change execute `clear_if_owned()`.
+  - Application exit integration: `app.aboutToQuit` signal connected to `clear_if_owned()`.
+  - Zero sensitive data logging (only non-sensitive events "SecureVault clipboard copy initiated" and "SecureVault clipboard cleanup completed" are logged).
+  - Zero clipboard history, zero disk persistence, zero networking.
+- **UI Integration (`app/ui/unlocked_view.py`, `app/ui/theme.py`)**:
+  - `ViewCredentialDialog`: Added `[ Copy Username ]` and `[ Copy Password ]` buttons beside respective fields.
+  - Password remains masked by default with Show/Hide toggle.
+  - Non-blocking confirmation message: *"Username copied. Clipboard will clear in 30 seconds."* and *"Password copied. Clipboard will clear in 30 seconds."*.
+  - `UnlockedView` displays non-sensitive copy confirmations and auto-cleared status.
+  - Themed `QPushButton#CopyUsernameBtn` and `QPushButton#CopyPasswordBtn` in Dark and Light themes.
+- **Testing**: 24 automated unit and UI tests in `tests/test_clipboard_service.py` and `tests/test_ui_clipboard.py`.
+- **Manual Verification**: Script `scripts/verify_m10.py` verified all 27 Section 19 steps.
 
 ---
 
-## 3. What is Intentionally NOT Implemented in M8
+## 3. What is Intentionally NOT Implemented in M10
 
 In strict adherence to project boundaries and milestone separation:
-- **Password Generator**: Scheduled for M9.
-- **Clipboard Management / Auto-Clear**: Scheduled for M10.
+- **Password Generator**: Permanently removed from roadmap per user instructions.
+- **Clipboard History / Clipboard Monitoring**: Excluded; SecureVault does not monitor external clipboard.
+- **Configurable Clipboard Timeout**: Excluded; hardcoded 30-second invariant.
 - **CSV Export / Cloud Sync / Networking**: Permanently excluded from SecureVault.
-- **System Theme / Accent Colors / UI Scaling**: Excluded; exactly Dark and Light supported.
-- **Configurable Grace Period**: Excluded; 15-second grace period is system-defined.
+- **Biometrics / Hardware Tokens**: Excluded from Version 1.
 
 ---
 
 ## 4. Current Task
-Milestone M8 (Settings + Theme) COMPLETE, tested, and verified.
+Milestone M10 (Clipboard Security) COMPLETE, tested, and verified.
 
 ---
 
 ## 5. Next Task
-Milestone M9 — Password Generator.
+Milestone M11 — Security Hardening.
 
 ---
 
 ## 6. Known Issues / Unresolved Items
-- **None**: All M8 requirements, theme switching, auto-lock updates, master password change, atomic persistence, and 329/329 tests pass with 100% pass rate.
+- **None**: All M10 requirements, username copy, password copy, 30-second auto-clear, ownership protection, lock integration, and 353/353 tests pass with 100% pass rate.
 
 ---
 
@@ -250,5 +269,6 @@ Milestone M9 — Password Generator.
 - **ADR-014**: In-Memory Credential CRUD & Immediate Atomic Vault Re-Encryption.
 - **ADR-015**: Event-Driven Inactivity Monitoring & Two-Stage Auto-Lock Lifecycle.
 - **ADR-016**: Non-Sensitive Preferences Architecture, Centralized Dynamic Theming, and Cryptographic Master Password Rotation.
+- **ADR-017**: Centralized Clipboard Security Service, Strict Ownership Verification, and Auto-Clear Watchdog.
 
 

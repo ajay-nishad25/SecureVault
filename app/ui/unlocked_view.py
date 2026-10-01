@@ -37,6 +37,7 @@ from app.core.config import WINDOW_HEIGHT, WINDOW_WIDTH
 from app.core.exceptions import CredentialValidationError, VaultLockedError
 from app.core.logging import get_logger
 from app.models.credential import Credential
+from app.services.clipboard_service import ClipboardService
 from app.services.credential_service import CredentialService
 from app.services.session_manager import SessionManager
 from app.services.settings_service import SettingsService
@@ -141,13 +142,19 @@ class AddCredentialDialog(QDialog):
 
 
 class ViewCredentialDialog(QDialog):
-    """Read-only dialog for inspecting a credential with masked password."""
+    """Read-only dialog for inspecting a credential with masked password and secure copy actions."""
 
-    def __init__(self, credential: Credential, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        credential: Credential,
+        clipboard_service: ClipboardService | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self._credential = credential
+        self._clipboard_service = clipboard_service or ClipboardService.instance()
         self.setWindowTitle("View Credential — SecureVault")
-        self.resize(420, 260)
+        self.resize(460, 280)
 
         layout = QVBoxLayout()
         layout.setSpacing(12)
@@ -158,9 +165,18 @@ class ViewCredentialDialog(QDialog):
         self.title_val.setReadOnly(True)
         form.addRow("Title:", self.title_val)
 
+        username_layout = QHBoxLayout()
+        username_layout.setSpacing(6)
         self.username_val = QLineEdit(credential.username)
         self.username_val.setReadOnly(True)
-        form.addRow("Username:", self.username_val)
+        username_layout.addWidget(self.username_val)
+
+        self.copy_username_btn = QPushButton("Copy Username")
+        self.copy_username_btn.setObjectName("CopyUsernameBtn")
+        self.copy_username_btn.clicked.connect(self._on_copy_username)
+        username_layout.addWidget(self.copy_username_btn)
+
+        form.addRow("Username:", username_layout)
 
         pwd_layout = QHBoxLayout()
         pwd_layout.setSpacing(6)
@@ -170,9 +186,15 @@ class ViewCredentialDialog(QDialog):
         pwd_layout.addWidget(self.password_val)
 
         self.toggle_pwd_btn = QPushButton("Show")
+        self.toggle_pwd_btn.setObjectName("TogglePwdBtn")
         self.toggle_pwd_btn.setStyleSheet("padding: 4px 10px; font-size: 11px;")
         self.toggle_pwd_btn.clicked.connect(self._toggle_password_visibility)
         pwd_layout.addWidget(self.toggle_pwd_btn)
+
+        self.copy_password_btn = QPushButton("Copy Password")
+        self.copy_password_btn.setObjectName("CopyPasswordBtn")
+        self.copy_password_btn.clicked.connect(self._on_copy_password)
+        pwd_layout.addWidget(self.copy_password_btn)
 
         form.addRow("Password:", pwd_layout)
 
@@ -181,6 +203,13 @@ class ViewCredentialDialog(QDialog):
         form.addRow("Notes:", self.notes_val)
 
         layout.addLayout(form)
+
+        # Status confirmation label for non-blocking feedback
+        self.status_label = QLabel("")
+        self.status_label.setObjectName("ViewDialogStatus")
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.status_label)
+
         layout.addStretch()
 
         btn_layout = QHBoxLayout()
@@ -201,6 +230,18 @@ class ViewCredentialDialog(QDialog):
         else:
             self.password_val.setEchoMode(QLineEdit.EchoMode.Password)
             self.toggle_pwd_btn.setText("Show")
+
+    def _on_copy_username(self) -> None:
+        success = self._clipboard_service.copy_username(self._credential.username)
+        if success:
+            self.status_label.setText("Username copied. Clipboard will clear in 30 seconds.")
+            self.status_label.setStyleSheet("color: #44bb44; font-size: 11px; font-weight: bold;")
+
+    def _on_copy_password(self) -> None:
+        success = self._clipboard_service.copy_password(self._credential.password)
+        if success:
+            self.status_label.setText("Password copied. Clipboard will clear in 30 seconds.")
+            self.status_label.setStyleSheet("color: #44bb44; font-size: 11px; font-weight: bold;")
 
 
 class EditCredentialDialog(QDialog):
@@ -444,6 +485,7 @@ class UnlockedView(QWidget):
         credential_service: CredentialService | None = None,
         session_manager: SessionManager | None = None,
         settings_service: SettingsService | None = None,
+        clipboard_service: ClipboardService | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -456,6 +498,11 @@ class UnlockedView(QWidget):
         self._settings_service = settings_service or (
             SettingsService(vault_service.config) if vault_service else SettingsService()
         )
+        self.clipboard_service = clipboard_service or ClipboardService.instance()
+        self._clipboard_service = self.clipboard_service
+
+        self.clipboard_service.copied.connect(self._on_clipboard_copied)
+        self.clipboard_service.cleared.connect(self._on_clipboard_cleared)
 
         if session_manager is not None:
             self._session_manager = session_manager
@@ -757,7 +804,7 @@ class UnlockedView(QWidget):
             return
         try:
             cred = self._credential_service.get_credential_or_raise(cred_id)
-            dialog = ViewCredentialDialog(cred, self)
+            dialog = ViewCredentialDialog(cred, clipboard_service=self.clipboard_service, parent=self)
             dialog.exec()
         except Exception as err:
             logger.error("Failed to view credential: %s", err)
@@ -882,6 +929,22 @@ class UnlockedView(QWidget):
                 child.reject()
         self._on_lock_clicked()
 
+    def _on_clipboard_copied(self, field_name: str) -> None:
+        """Display non-sensitive confirmation when a credential field is copied."""
+        if field_name == "password":
+            msg = "Password copied. Clipboard will clear in 30 seconds."
+        elif field_name == "username":
+            msg = "Username copied. Clipboard will clear in 30 seconds."
+        else:
+            msg = "Copied to clipboard. Will clear in 30 seconds."
+        self.status_label.setText(f"✓ {msg}")
+        self.status_label.setStyleSheet("color: #44bb44; font-size: 11px;")
+
+    def _on_clipboard_cleared(self) -> None:
+        """Display subtle confirmation when clipboard auto-clears."""
+        self.status_label.setText("Clipboard auto-cleared.")
+        self.status_label.setStyleSheet("color: #888888; font-size: 11px;")
+
     def showEvent(self, event) -> None:
         """Start the session manager inactivity monitoring when view is shown."""
         super().showEvent(event)
@@ -889,16 +952,18 @@ class UnlockedView(QWidget):
             self._session_manager.start_session()
 
     def closeEvent(self, event) -> None:
-        """Stop session inactivity monitoring and timers upon window close."""
+        """Stop session inactivity monitoring, clean up clipboard, and stop timers upon window close."""
         if self._session_manager:
             self._session_manager.stop_session()
+        self.clipboard_service.clear_if_owned()
         super().closeEvent(event)
 
     def _on_lock_clicked(self) -> None:
-        """Lock active session, zero memory buffers, and emit lock signal."""
+        """Lock active session, zero memory buffers, clear owned clipboard, and emit lock signal."""
         logger.info("Lock requested from UnlockedView.")
         if self._session_manager:
             self._session_manager.stop_session()
+        self.clipboard_service.clear_if_owned()
         self.search_input.clear()
         self._vault.lock()
         self.lock_requested.emit()
