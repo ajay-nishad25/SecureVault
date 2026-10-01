@@ -9,9 +9,10 @@ Coordinates application UI transitions based on initialization and session state
 from __future__ import annotations
 
 import sys
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QDialog, QWidget
 
-from app.core.config import AppConfig, WINDOW_HEIGHT, WINDOW_WIDTH
+from app.core.config import AppConfig, WINDOW_HEIGHT, WINDOW_WIDTH, get_app_icon_path
 from app.core.logging import get_logger
 from app.services.authentication import AuthenticationService
 from app.services.clipboard_service import ClipboardService
@@ -24,6 +25,32 @@ from app.ui.setup.wizard import SetupWizard
 from app.ui.unlocked_view import UnlockedView
 
 logger = get_logger("ui.app_window")
+
+
+def setup_application_icon(app: QApplication | None = None) -> QIcon | None:
+    """Configure the global application icon on the QApplication instance.
+
+    Uses assets/SecureVault.ico as the official application icon and applies it
+    globally so all top-level windows and dialogs inherit it.
+
+    Args:
+        app: Optional QApplication instance. Defaults to QApplication.instance().
+
+    Returns:
+        QIcon | None: The loaded QIcon instance, or None if the icon could not be loaded.
+    """
+    target_app = app or QApplication.instance()
+    icon_path = get_app_icon_path()
+    if icon_path.exists():
+        icon = QIcon(str(icon_path))
+        if not icon.isNull():
+            if target_app is not None:
+                target_app.setWindowIcon(icon)
+            return icon
+        logger.warning("Application icon at '%s' could not be loaded as a valid QIcon.", icon_path)
+    else:
+        logger.warning("Application icon file not found at '%s'.", icon_path)
+    return None
 
 
 def center_window(widget: QWidget) -> None:
@@ -66,6 +93,9 @@ class ApplicationController:
                 app.aboutToQuit.connect(self.clipboard_service.clear_if_owned)
             except Exception:
                 pass
+
+        # Configure global application icon if QApplication exists
+        setup_application_icon()
 
         # Apply saved theme before any window is rendered
         from app.ui.theme import ThemeManager
@@ -186,6 +216,17 @@ def run_gui(
 
     app.setApplicationName("SecureVault")
     app.setApplicationDisplayName("SecureVault")
+
+    # Set Windows AppUserModelID for taskbar icon grouping
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("SecureVault.SecureVault.1.0")
+        except Exception:
+            pass
+
+    # Configure application-wide window icon
+    setup_application_icon(app)
 
     controller = ApplicationController(
         config=config,

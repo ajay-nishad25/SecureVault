@@ -351,7 +351,6 @@ class CompletionPage(QWizardPage):
             "Next Steps:\n"
             "The application will now enter the LOCKED state. When you launch SecureVault in the future, "
             "you will be prompted to authenticate with your master password.\n\n"
-            "Note: Cryptographic vault storage and unlock verification will be activated in Milestones M3 and M4.\n\n"
             "Click 'Finish' to exit setup."
         )
         msg.setWordWrap(True)

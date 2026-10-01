@@ -52,6 +52,23 @@ def get_default_data_dir() -> Path:
         if local_app_data:
             return Path(local_app_data) / "SecureVault"
         return Path.home() / "AppData" / "Local" / "SecureVault"
+
+
+def get_asset_path(filename: str) -> Path:
+    """Resolve the path to an asset file across source and packaged runtimes."""
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        base_dir = Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    else:
+        # Running from source: resolve relative to project root
+        base_dir = Path(__file__).resolve().parent.parent.parent
+    return base_dir / "assets" / filename
+
+
+def get_app_icon_path() -> Path:
+    """Return the canonical path to the SecureVault application icon (SecureVault.ico)."""
+    return get_asset_path("SecureVault.ico")
+
+
 # Canonical application window dimensions
 WINDOW_WIDTH: int = 1100
 WINDOW_HEIGHT: int = 780
@@ -86,6 +103,11 @@ class AppConfig:
     def settings_path(self) -> Path:
         """Return the absolute path to the non-sensitive settings file."""
         return self.data_dir / self.settings_filename
+
+    @property
+    def icon_path(self) -> Path:
+        """Return the absolute path to the official application icon (SecureVault.ico)."""
+        return get_app_icon_path()
 
     def ensure_data_dir_exists(self) -> None:
         """Ensure the target application data directory exists."""

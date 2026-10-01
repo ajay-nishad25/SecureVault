@@ -257,6 +257,14 @@
   - Implemented 9 dedicated regression tests verifying KEK zeroing, KDF password buffer zeroing, atomic save failure rollback, and constant-time reuse detection.
   - Total test suite count increased to 362 passing tests (100% pass rate).
 
+### Application Icon Resource Integration (M13 Preparation)
+- **Official Application Icon**: Integrated `assets/SecureVault.ico` (multi-resolution 16x16, 24x24, 32x32, 48x48, 64x64, 128x128, 256x256).
+- **Central Loading**: Configured `setup_application_icon()` in `app/ui/app_window.py` to apply icon globally to `QApplication.setWindowIcon()`.
+- **Resource Path Resolution**: Added `get_asset_path()`, `get_app_icon_path()`, and `AppConfig.icon_path` in `app/core/config.py` with cross-platform and frozen-bundle compatibility.
+- **Window Icon Inheritance**: Verified automatic propagation to `SetupWizard`, `LockedView`, `UnlockedView`, `SettingsDialog`, `ViewCredentialDialog`, and `EditCredentialDialog`.
+- **Windows Taskbar Integration**: Configured `SetCurrentProcessExplicitAppUserModelID` for native Windows taskbar icon grouping.
+- **Testing**: Added `tests/test_app_icon.py` (10 tests; total test suite: 372 tests passing).
+
 ---
 
 ## 3. What is Intentionally NOT Implemented in M11
