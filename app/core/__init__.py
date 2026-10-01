@@ -7,6 +7,7 @@ and domain exception definitions.
 from app.core.config import AppConfig, get_default_data_dir, validate_safe_setting_key
 from app.core.exceptions import (
     ConfigurationError,
+    PasswordReuseError,
     SecureVaultError,
     SecurityError,
     StorageError,
@@ -22,6 +23,7 @@ __all__ = [
     "ConfigurationError",
     "StorageError",
     "SecurityError",
+    "PasswordReuseError",
     "ValidationError",
     "get_logger",
     "setup_logging",

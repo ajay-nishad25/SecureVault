@@ -126,13 +126,15 @@ Each milestone is discrete, testable, and gated by defined completion criteria.
   - 353 passing automated tests across full test suite.
 - **Dependencies**: M8.
 
-### M11 — Security Hardening
+### M11 — Security Hardening (Completed)
 - **Objective**: Conduct defensive code hardening across the entire application stack.
 - **Key Deliverables**:
-  - Best-effort memory zeroing audits on mutable byte buffers.
-  - Verification that logging/telemetry is completely absent.
-  - Sanitization of all UI error dialogues to eliminate side-channel leaks.
-  - File permission restrictions (Windows ACLs on `%LOCALAPPDATA%\SecureVault\`).
+  - Security audit across 27 areas confirming zero critical/high vulnerabilities and zero networking/telemetry.
+  - Deterministic KEK memory zeroing via mutable `bytearray` and guaranteed `finally: zero_buffer()` across `create_vault()`, `unlock_vault()`, and `change_master_password()`.
+  - Transient master password buffer zeroing in Argon2id KDF derivation (`app/crypto/kdf.py`).
+  - Atomic in-memory state updates in `VaultService.save_vault()`, preventing state divergence on persistence failure.
+  - Constant-time password reuse comparison using `hmac.compare_digest()` and `PasswordReuseError`.
+  - 9 targeted security regression tests in `tests/test_m11_security_hardening.py` (362 tests passing total).
 - **Dependencies**: M10.
 
 ### M12 — Testing

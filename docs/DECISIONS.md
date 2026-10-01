@@ -251,3 +251,33 @@ Each record details the context, decision, and consequences.
   - *Positive*: Significant reduction in transient credential exposure windows without intrusive user interruption.
   - *Positive*: Non-destructive to user workflow; external clipboard copying is never inadvertently wiped.
   - *Positive*: Immediate cleanup on lock guarantees credentials do not outlive active vault sessions.
+
+---
+
+## ADR-018: Deterministic Ephemeral Buffer Hygiene, In-Memory Save Atomicity, and Constant-Time Equality Hardening
+- **Status**: Accepted (Milestone M11)
+- **Context**: A comprehensive security audit of M0–M10 implementations revealed key areas for defensive hardening:
+  1. `derive_kek()` returned immutable `bytes`, preventing `zero_buffer()` from wiping transient KEKs in-place in `create_vault()`, `unlock_vault()`, and `change_master_password()`.
+  2. Transient master password UTF-8 conversions created immutable `bytes` in KDF derivation.
+  3. `save_vault()` mutated `target_vault.payload["updated_at"]` in-memory prior to atomic disk persistence, allowing divergence on I/O error.
+  4. Master password rotation compared current and prospective passwords via normal string equality (`==`) rather than constant-time comparison.
+- **Decision**:
+  1. **Deterministic KEK Memory Hygiene**:
+     - `derive_kek()` supports returning mutable `bytearray` buffers (`as_bytearray=True`).
+     - `VaultService` (`create_vault()`, `unlock_vault()`, `change_master_password()`) strictly holds derived KEKs in mutable `bytearray` containers.
+     - `zero_buffer()` is reliably executed in `finally` blocks immediately upon completion or failure of DEK wrapping/unwrapping operations.
+     - Immutable `bytes(kek)` conversion is restricted to the exact point of invocation into cryptography's `AESGCM`.
+  2. **Transient Password Buffer Zeroing in KDF**:
+     - `derive_kek()` ingests passwords into mutable `bytearray` buffers and executes `zero_buffer()` in `finally`.
+     - Explicitly acknowledges CPython interpreter boundaries: immutable `str` objects in user-space cannot be physically guaranteed zeroed in RAM.
+  3. **Atomic In-Memory Save Updates**:
+     - `save_vault()` prepares isolated copies of payload and header metadata for serialization, encryption, and disk persistence.
+     - In-memory session objects (`target_vault.payload["updated_at"]`, `header`, `raw_json`) are updated strictly *after* `write_vault_file()` returns successfully.
+     - Storage or serialization exceptions leave the in-memory state unmodified.
+  4. **Constant-Time Password Reuse Validation**:
+     - `change_master_password()` uses `hmac.compare_digest()` to evaluate current vs new password equality, mitigating timing side channels.
+     - Identical passwords trigger `PasswordReuseError` (subclass of `InvalidPasswordInputError`).
+- **Consequences**:
+  - *Positive*: Maximizes memory hygiene within Python's runtime constraints by deterministically wiping all intermediate byte buffers.
+  - *Positive*: Eliminates memory-disk state divergence during transient storage or I/O errors.
+  - *Positive*: Hardens password rotation checks against timing side-channel attacks while maintaining 100% backward compatibility with existing validation handlers.

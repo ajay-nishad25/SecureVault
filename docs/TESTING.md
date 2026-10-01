@@ -281,12 +281,27 @@ SecureVault's testing architecture enforces high-reliability standards appropria
   - **Window Close Cleanup**: Verifies `closeEvent` cleans up owned clipboard.
   - **ApplicationController Lock**: Verifies `_on_vault_locked()` transitions clear owned clipboard.
 
+### 2.17 Security Hardening & Regression Tests (M11)
+- `tests/test_m11_security_hardening.py` (9 tests):
+  - **Deterministic KEK Memory Zeroing (M11.1 / SEC-M11-01)**:
+    - `test_create_vault_zeroes_mutable_kek`: Verifies that `VaultService.create_vault()` holds KEK in a mutable `bytearray` and executes `zero_buffer()` inside `finally`.
+    - `test_unlock_vault_zeroes_mutable_kek`: Verifies that `VaultService.unlock_vault()` zeroes the mutable KEK buffer upon successful unwrap.
+    - `test_unlock_vault_zeroes_kek_on_wrong_password_failure`: Verifies that `unlock_vault()` executes `zero_buffer(kek)` even when `unwrap_dek()` fails due to wrong password.
+    - `test_change_master_password_zeroes_all_transient_keys`: Verifies that `change_master_password()` zeroes `cur_kek`, `new_kek`, and `dek_buffer` (all mutable `bytearray` buffers).
+  - **Transient Password Buffer Zeroing in KDF (M11.2 / SEC-M11-02)**:
+    - `test_kdf_transient_password_buffer_is_zeroed`: Verifies that `derive_kek()` converts password to a mutable `bytearray` and zeroes it in `finally`.
+    - `test_kdf_as_bytearray_option`: Verifies `as_bytearray=True` returns mutable `bytearray` suitable for `zero_buffer()`, while default returns immutable `bytes`.
+  - **Atomic In-Memory State Updates (M11.3 / SEC-M11-03)**:
+    - `test_save_vault_failure_does_not_mutate_in_memory_state`: Simulates `write_vault_file` failure and verifies `updated_at`, `header`, and `raw_json` remain unchanged in memory.
+    - `test_save_vault_success_commits_in_memory_state`: Verifies successful persistence updates `updated_at` only after disk persistence succeeds.
+  - **Constant-Time Password Comparison (M11.4 / SEC-M11-04)**:
+    - `test_identical_passwords_raise_password_reuse_error`: Verifies identical current and new passwords invoke `hmac.compare_digest` and raise `PasswordReuseError` (subclass of `InvalidPasswordInputError`).
+
 ---
 
 ## 3. Future Test Suites (Scheduled per Roadmap)
 
-- **M11 (Security Hardening)**: Memory zeroing audits, error dialogue sanitization, and filesystem permission restrictions.
-- **M12 (Comprehensive Testing)**: Tamper injection and corruption test suites.
+- **M12 (Packaging & Distribution)**: Standalone frozen bundle smoke tests, cross-machine launch, and distribution integrity validation.
 
 ---
 
@@ -297,4 +312,4 @@ All tests are executed using pytest:
 # Run full test suite
 .\.venv\Scripts\python.exe -m pytest -v
 ```
-*Current test status: 353 passed, 0 failed.*
+*Current test status: 362 passed, 0 failed.*

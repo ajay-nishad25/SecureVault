@@ -27,6 +27,7 @@ from app.core.exceptions import (
     SecurityError,
 )
 from app.core.logging import get_logger
+from app.crypto.encryption import zero_buffer
 
 logger = get_logger("crypto.kdf")
 
@@ -120,25 +121,34 @@ def generate_salt(length: int = DEFAULT_SALT_LENGTH) -> bytes:
 
 
 def derive_kek(
-    password: Union[str, bytes],
+    password: Union[str, bytes, bytearray],
     salt: bytes,
     parameters: KDFParameters | None = None,
-) -> bytes:
+    as_bytearray: bool = False,
+) -> Union[bytes, bytearray]:
     """Derive a 256-bit (32-byte) Key Encryption Key (KEK) using Argon2id.
 
     Args:
-        password: Human master password string or bytes.
+        password: Human master password string, bytes, or bytearray.
         salt: 16-byte random cryptographic salt.
         parameters: KDFParameters (defaults to standard M0 production values).
+        as_bytearray: If True, returns a mutable bytearray to allow deterministic
+            in-place memory zeroing by callers. Defaults to False (bytes).
 
     Returns:
-        bytes: Derived 32-byte KEK.
+        bytes | bytearray: Derived 32-byte KEK.
 
     Raises:
         InvalidPasswordInputError: If the password is empty.
         InvalidSaltError: If the salt length is incorrect.
         InvalidKDFParametersError: If parameters are invalid.
         SecurityError: If low-level KDF derivation fails.
+
+    Security Note:
+        The transient password buffer is held in a mutable bytearray and explicitly
+        zeroed with zero_buffer() in a finally block. However, callers passing
+        Python `str` objects should note that Python immutable strings cannot be
+        deterministically erased from interpreter memory.
     """
     params = parameters or KDFParameters.default()
     params.validate()
@@ -151,15 +161,16 @@ def derive_kek(
             f"Invalid salt length: expected {params.salt_length} bytes, got {len(salt)}"
         )
 
-    # Ingest password as transient bytes
+    # Ingest password as transient mutable bytearray
+    password_buf: bytearray | None = None
     if isinstance(password, str):
         if not password:
             raise InvalidPasswordInputError("Master password cannot be empty.")
-        password_bytes = password.encode("utf-8")
+        password_buf = bytearray(password.encode("utf-8"))
     elif isinstance(password, (bytes, bytearray)):
         if not password:
             raise InvalidPasswordInputError("Master password cannot be empty.")
-        password_bytes = bytes(password)
+        password_buf = bytearray(password)
     else:
         raise InvalidPasswordInputError("Password must be a string or bytes.")
 
@@ -172,7 +183,7 @@ def derive_kek(
 
     try:
         raw_kek = argon2.low_level.hash_secret_raw(
-            secret=password_bytes,
+            secret=bytes(password_buf),
             salt=salt,
             time_cost=params.time_cost,
             memory_cost=params.memory_cost,
@@ -184,12 +195,15 @@ def derive_kek(
         logger.error("Argon2id key derivation error encountered.")
         raise SecurityError(f"Key derivation failed: {err}") from err
     finally:
-        # Best-effort hygiene: delete reference to converted password bytes
-        del password_bytes
+        # Securely zero the transient mutable password buffer
+        if password_buf is not None:
+            zero_buffer(password_buf)
 
     if len(raw_kek) != params.hash_length:
         raise SecurityError(
             f"Derived key length mismatch: expected {params.hash_length} bytes, got {len(raw_kek)}"
         )
 
+    if as_bytearray:
+        return bytearray(raw_kek)
     return raw_kek

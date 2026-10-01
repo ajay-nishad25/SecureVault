@@ -16,6 +16,7 @@ CRITICAL SECURITY RULES:
 
 from __future__ import annotations
 
+import hmac
 import json
 import struct
 import uuid
@@ -30,6 +31,7 @@ from app.core.exceptions import (
     CorruptedVaultError,
     DecryptionError,
     InvalidPasswordInputError,
+    PasswordReuseError,
     SecurityError,
     VaultLockedError,
 )
@@ -176,76 +178,75 @@ class VaultService:
 
         logger.info("Initializing new encrypted vault at '%s'.", target_path.name)
 
-        # 1. Salt & KEK Derivation
+        # 1. Salt & KEK Derivation into mutable bytearray
         salt = generate_salt(params.salt_length)
-        kek = derive_kek(master_password, salt, params)
+        kek = bytearray(derive_kek(master_password, salt, params, as_bytearray=True))
 
-        # 2. Random DEK Generation
-        dek = generate_dek()
+        try:
+            # 2. Random DEK Generation
+            dek = generate_dek()
 
-        # 3. Compute AAD_DEK (MAGIC + FORMAT_VERSION + KDF fields + SALT)
-        # Struct: >8s H B I I H B 16s (38 bytes)
-        public_header_prefix = struct.pack(
-            ">8s H B I I H B 16s",
-            MAGIC,
-            CURRENT_FORMAT_VERSION,
-            KDF_ID_ARGON2ID,
-            params.memory_cost,
-            params.time_cost,
-            params.parallelism,
-            len(salt),
-            salt,
-        )
-        aad_dek = public_header_prefix
+            # 3. Compute AAD_DEK (MAGIC + FORMAT_VERSION + KDF fields + SALT)
+            # Struct: >8s H B I I H B 16s (38 bytes)
+            public_header_prefix = struct.pack(
+                ">8s H B I I H B 16s",
+                MAGIC,
+                CURRENT_FORMAT_VERSION,
+                KDF_ID_ARGON2ID,
+                params.memory_cost,
+                params.time_cost,
+                params.parallelism,
+                len(salt),
+                salt,
+            )
+            aad_dek = public_header_prefix
 
-        # 4. Wrap DEK
-        dek_nonce, wrapped_dek, dek_tag = wrap_dek(kek, dek, aad_dek)
+            # 4. Wrap DEK (pass bytes(kek) only at the exact point required)
+            dek_nonce, wrapped_dek, dek_tag = wrap_dek(bytes(kek), dek, aad_dek)
 
-        # 5. Generate and Encrypt Initial Payload
-        plaintext_payload = create_empty_vault_payload()
-        payload_len = len(plaintext_payload)
+            # 5. Generate and Encrypt Initial Payload
+            plaintext_payload = create_empty_vault_payload()
+            payload_len = len(plaintext_payload)
 
-        # 6. Compute AAD_PAYLOAD (MAGIC 8B + FORMAT_VERSION 2B + PAYLOAD_LEN 8B)
-        aad_payload = struct.pack(
-            ">8s H Q",
-            MAGIC,
-            CURRENT_FORMAT_VERSION,
-            payload_len,
-        )
+            # 6. Compute AAD_PAYLOAD (MAGIC 8B + FORMAT_VERSION 2B + PAYLOAD_LEN 8B)
+            aad_payload = struct.pack(
+                ">8s H Q",
+                MAGIC,
+                CURRENT_FORMAT_VERSION,
+                payload_len,
+            )
 
-        payload_nonce, payload_ciphertext, payload_tag = encrypt_payload(
-            dek,
-            plaintext_payload,
-            aad_payload,
-        )
+            payload_nonce, payload_ciphertext, payload_tag = encrypt_payload(
+                dek,
+                plaintext_payload,
+                aad_payload,
+            )
 
-        # 7. Assemble 134-byte VaultHeader
-        header = VaultHeader(
-            magic=MAGIC,
-            format_version=CURRENT_FORMAT_VERSION,
-            kdf_id=KDF_ID_ARGON2ID,
-            kdf_memory=params.memory_cost,
-            kdf_time=params.time_cost,
-            kdf_parallel=params.parallelism,
-            salt_len=len(salt),
-            salt=salt,
-            dek_nonce=dek_nonce,
-            wrapped_dek=wrapped_dek,
-            dek_tag=dek_tag,
-            payload_len=payload_len,
-            payload_nonce=payload_nonce,
-            payload_tag=payload_tag,
-        )
+            # 7. Assemble 134-byte VaultHeader
+            header = VaultHeader(
+                magic=MAGIC,
+                format_version=CURRENT_FORMAT_VERSION,
+                kdf_id=KDF_ID_ARGON2ID,
+                kdf_memory=params.memory_cost,
+                kdf_time=params.time_cost,
+                kdf_parallel=params.parallelism,
+                salt_len=len(salt),
+                salt=salt,
+                dek_nonce=dek_nonce,
+                wrapped_dek=wrapped_dek,
+                dek_tag=dek_tag,
+                payload_len=payload_len,
+                payload_nonce=payload_nonce,
+                payload_tag=payload_tag,
+            )
 
-        header_bytes = header.serialize()
+            header_bytes = header.serialize()
 
-        # 8. Atomically Persist to Disk
-        write_vault_file(target_path, header_bytes, payload_ciphertext)
-
-        # Best-effort zeroing of temporary KEK buffer
-        if isinstance(kek, (bytearray, memoryview)):
+            # 8. Atomically Persist to Disk
+            write_vault_file(target_path, header_bytes, payload_ciphertext)
+        finally:
+            # Deterministic in-place zeroing of mutable KEK buffer
             zero_buffer(kek)
-        kek = b"\x00" * len(kek)
 
         logger.info("Encrypted vault successfully created and persisted.")
 
@@ -303,27 +304,31 @@ class VaultService:
         header = VaultHeader.parse(header_bytes)
         kdf_params = header.to_kdf_parameters()
 
-        # Derive KEK using header's salt and parameters
-        kek = derive_kek(master_password, header.salt, kdf_params)
+        # Derive KEK using header's salt and parameters into mutable bytearray
+        kek = bytearray(derive_kek(master_password, header.salt, kdf_params, as_bytearray=True))
 
-        # Reconstruct AAD_DEK
-        aad_dek = extract_aad_dek_from_bytes(header_bytes)
-
-        # Attempt to unwrap DEK
         try:
-            dek = unwrap_dek(
-                kek=kek,
-                nonce=header.dek_nonce,
-                wrapped_dek=header.wrapped_dek,
-                tag=header.dek_tag,
-                aad=aad_dek,
-            )
-        except DecryptionError as err:
-            logger.warning("Vault unlock failed: incorrect master password or corrupted header.")
-            # Map low-level decryption failure to domain authentication error
-            raise AuthenticationError(
-                "Incorrect master password or invalid vault."
-            ) from err
+            # Reconstruct AAD_DEK
+            aad_dek = extract_aad_dek_from_bytes(header_bytes)
+
+            # Attempt to unwrap DEK
+            try:
+                dek = unwrap_dek(
+                    kek=bytes(kek),
+                    nonce=header.dek_nonce,
+                    wrapped_dek=header.wrapped_dek,
+                    tag=header.dek_tag,
+                    aad=aad_dek,
+                )
+            except DecryptionError as err:
+                logger.warning("Vault unlock failed: incorrect master password or corrupted header.")
+                # Map low-level decryption failure to domain authentication error
+                raise AuthenticationError(
+                    "Incorrect master password or invalid vault."
+                ) from err
+        finally:
+            # Deterministic in-place zeroing of mutable KEK buffer
+            zero_buffer(kek)
 
         # Reconstruct AAD_PAYLOAD
         aad_payload = extract_aad_payload_from_bytes(header_bytes)
@@ -350,11 +355,6 @@ class VaultService:
         except (UnicodeDecodeError, json.JSONDecodeError) as err:
             logger.error("Failed to parse decrypted vault JSON payload: %s", err)
             raise CorruptedVaultError(f"Decrypted vault payload is not valid JSON: {err}") from err
-
-        # Best-effort zeroing of temporary KEK buffer
-        if isinstance(kek, (bytearray, memoryview)):
-            zero_buffer(kek)
-        kek = b"\x00" * len(kek)
 
         logger.info("Vault successfully unlocked and decrypted for user session.")
 
@@ -387,14 +387,16 @@ class VaultService:
         if target_vault is None or target_vault.is_locked:
             raise VaultLockedError("Cannot save vault: active vault session is locked or unavailable.")
 
-        # Update updated_at timestamp in payload envelope
-        target_vault.payload["updated_at"] = datetime.now(timezone.utc).isoformat()
+        # 1. Prepare new payload state separately without mutating target_vault.payload
+        new_updated_at = datetime.now(timezone.utc).isoformat()
+        prepared_payload = dict(target_vault.payload)
+        prepared_payload["updated_at"] = new_updated_at
 
-        # Serialize payload to JSON bytes
-        plaintext_payload = json.dumps(target_vault.payload, indent=2).encode("utf-8")
+        # 2. Serialize prepared payload to JSON bytes
+        plaintext_payload = json.dumps(prepared_payload, indent=2).encode("utf-8")
         payload_len = len(plaintext_payload)
 
-        # Compute AAD_PAYLOAD (MAGIC 8B + FORMAT_VERSION 2B + PAYLOAD_LEN 8B)
+        # 3. Compute AAD_PAYLOAD (MAGIC 8B + FORMAT_VERSION 2B + PAYLOAD_LEN 8B)
         aad_payload = struct.pack(
             ">8s H Q",
             MAGIC,
@@ -402,27 +404,30 @@ class VaultService:
             payload_len,
         )
 
-        # Encrypt payload under DEK with fresh 12-byte CSPRNG nonce
+        # 4. Encrypt payload under DEK with fresh 12-byte CSPRNG nonce
         payload_nonce, payload_ciphertext, payload_tag = encrypt_payload(
             bytes(target_vault.dek),
             plaintext_payload,
             aad_payload,
         )
 
-        # Update header payload metadata (VaultHeader is frozen)
-        target_vault.header = replace(
+        # 5. Prepare updated header (do not commit to target_vault yet)
+        new_header = replace(
             target_vault.header,
             payload_len=payload_len,
             payload_nonce=payload_nonce,
             payload_tag=payload_tag,
         )
 
-        # Assemble and serialize exact 134-byte VaultHeader
-        header_bytes = target_vault.header.serialize()
+        # 6. Assemble and serialize exact 134-byte VaultHeader
+        header_bytes = new_header.serialize()
 
-        # Atomically write to disk
+        # 7. Atomically write to disk
         write_vault_file(target_vault.vault_path, header_bytes, payload_ciphertext)
 
+        # 8. Only commit in-memory mutations AFTER successful disk persistence
+        target_vault.payload["updated_at"] = new_updated_at
+        target_vault.header = new_header
         target_vault.raw_json = plaintext_payload.decode("utf-8")
         logger.info("Encrypted vault successfully saved and persisted to disk.")
 
@@ -498,8 +503,8 @@ class VaultService:
                     f"Master password must be at least {MIN_PASSWORD_LENGTH} characters."
                 )
 
-        if cur_pwd_str == new_pwd_str:
-            raise InvalidPasswordInputError(
+        if hmac.compare_digest(cur_pwd_str, new_pwd_str):
+            raise PasswordReuseError(
                 "New master password cannot be the same as the current password."
             )
 
@@ -509,61 +514,60 @@ class VaultService:
         header = VaultHeader.parse(header_bytes)
         kdf_params = header.to_kdf_parameters()
 
-        # Derive KEK from current password
-        cur_kek = derive_kek(cur_pwd_str, header.salt, kdf_params)
-        aad_dek = extract_aad_dek_from_bytes(header_bytes)
+        # Derive KEK from current password into mutable bytearray
+        cur_kek = bytearray(derive_kek(cur_pwd_str, header.salt, kdf_params, as_bytearray=True))
 
         # Authenticate current password by unwrapping existing DEK
         try:
-            dek = unwrap_dek(
-                kek=cur_kek,
-                nonce=header.dek_nonce,
-                wrapped_dek=header.wrapped_dek,
-                tag=header.dek_tag,
-                aad=aad_dek,
-            )
-        except DecryptionError as err:
-            logger.warning("Master password change failed: incorrect current password.")
-            raise AuthenticationError("Incorrect current master password.") from err
+            aad_dek = extract_aad_dek_from_bytes(header_bytes)
+            try:
+                dek = unwrap_dek(
+                    kek=bytes(cur_kek),
+                    nonce=header.dek_nonce,
+                    wrapped_dek=header.wrapped_dek,
+                    tag=header.dek_tag,
+                    aad=aad_dek,
+                )
+            except DecryptionError as err:
+                logger.warning("Master password change failed: incorrect current password.")
+                raise AuthenticationError("Incorrect current master password.") from err
         finally:
-            if isinstance(cur_kek, (bytearray, memoryview)):
-                zero_buffer(cur_kek)
-            cur_kek = b"\x00" * len(cur_kek)
+            # Deterministic in-place zeroing of current KEK buffer
+            zero_buffer(cur_kek)
 
         dek_buffer = bytearray(dek)
 
         # Generate fresh 16-byte salt for the new master password
         new_salt = generate_salt(len(header.salt))
 
-        # Derive new KEK from new master password
-        new_kek = derive_kek(new_pwd_str, new_salt, kdf_params)
+        # Derive new KEK from new master password into mutable bytearray
+        new_kek = bytearray(derive_kek(new_pwd_str, new_salt, kdf_params, as_bytearray=True))
 
-        # Compute new AAD_DEK with the new salt
-        new_public_header_prefix = struct.pack(
-            ">8s H B I I H B 16s",
-            MAGIC,
-            CURRENT_FORMAT_VERSION,
-            KDF_ID_ARGON2ID,
-            header.kdf_memory,
-            header.kdf_time,
-            header.kdf_parallel,
-            len(new_salt),
-            new_salt,
-        )
-        new_aad_dek = new_public_header_prefix
+        try:
+            # Compute new AAD_DEK with the new salt
+            new_public_header_prefix = struct.pack(
+                ">8s H B I I H B 16s",
+                MAGIC,
+                CURRENT_FORMAT_VERSION,
+                KDF_ID_ARGON2ID,
+                header.kdf_memory,
+                header.kdf_time,
+                header.kdf_parallel,
+                len(new_salt),
+                new_salt,
+            )
+            new_aad_dek = new_public_header_prefix
 
-        # Re-wrap the SAME DEK with the new KEK
-        new_dek_nonce, new_wrapped_dek, new_dek_tag = wrap_dek(
-            new_kek,
-            bytes(dek_buffer),
-            new_aad_dek,
-        )
-
-        # Zero temporary key buffers
-        if isinstance(new_kek, (bytearray, memoryview)):
+            # Re-wrap the SAME DEK with the new KEK
+            new_dek_nonce, new_wrapped_dek, new_dek_tag = wrap_dek(
+                bytes(new_kek),
+                bytes(dek_buffer),
+                new_aad_dek,
+            )
+        finally:
+            # Deterministic in-place zeroing of new KEK and transient DEK buffer
             zero_buffer(new_kek)
-        new_kek = b"\x00" * len(new_kek)
-        zero_buffer(dek_buffer)
+            zero_buffer(dek_buffer)
 
         # Assemble new VaultHeader preserving original payload metadata
         new_header = replace(

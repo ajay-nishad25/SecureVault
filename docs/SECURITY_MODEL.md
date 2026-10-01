@@ -154,3 +154,19 @@ When transitioning from **UNLOCKED** to **LOCKED** (via timeout, `Ctrl+L`, or cl
 - **Overlapping Copy Management**: Copying a new value immediately disarms previous timers and establishes ownership over the latest value.
 - **Session Lock & Shutdown**: Transitioning to `LOCKED` or closing the application triggers immediate `clear_if_owned()`.
 - **Zero Passive Monitoring**: SecureVault does NOT continuously monitor the OS clipboard, does NOT record clipboard history, does NOT persist clipboard data to disk or logs, and maintains no background polling.
+
+---
+
+### 7.4 Security Hardening Architecture (Milestone M11)
+- **Deterministic Ephemeral Buffer Hygiene (`SEC-M11-01`, `SEC-M11-02`)**:
+  - Key Encryption Keys (KEK) are ingested and held strictly in mutable `bytearray` containers.
+  - `zero_buffer()` execution is guaranteed inside `finally` blocks immediately upon completion or failure of DEK wrapping/unwrapping operations in `create_vault()`, `unlock_vault()`, and `change_master_password()`.
+  - Immutable `bytes(kek)` conversion is restricted to the exact point of invocation into cryptography's `AESGCM`.
+  - Transient master password UTF-8 representations are converted to mutable `bytearray` buffers in `derive_kek()` and explicitly wiped with `zero_buffer()` in `finally`.
+  - Realistic memory model boundary: While mutable `bytearray` buffers are deterministically cleared in-place via `ctypes.memset` / slice zeroing, Python high-level `str` instances are immutable and subject to interpreter lifecycle and garbage collection.
+- **In-Memory Save Atomicity (`SEC-M11-03`)**:
+  - `save_vault()` constructs staged copies of payload metadata (`updated_at`) and header structures separately from the active vault object.
+  - In-memory state mutation is committed strictly *after* atomic disk persistence (`write_vault_file()`) completes without error.
+  - If disk I/O, encryption, or file system operations fail, the in-memory vault session remains completely untouched, preventing synchronization drift.
+- **Constant-Time Rotation Checks (`SEC-M11-04`)**:
+  - Password rotation verification utilizes `hmac.compare_digest()` to compare current and prospective master passwords, mitigating timing side channels. Identical submissions trigger `PasswordReuseError`.

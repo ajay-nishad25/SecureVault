@@ -59,6 +59,10 @@ class InvalidPasswordInputError(SecurityError):
     """Raised when password input fails length, format, or validity checks."""
 
 
+class PasswordReuseError(InvalidPasswordInputError):
+    """Raised when the new master password matches the current master password."""
+
+
 class VaultLockedError(SecurityError):
     """Raised when an operation requires an unlocked vault but the vault is locked."""
 

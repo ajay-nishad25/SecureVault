@@ -2,10 +2,11 @@
 
 ## 1. Milestone Tracking
 
-- **Current Milestone**: `M10 — Clipboard Security`
-- **Status**: **COMPLETE** (Verified with 353 Passing Tests)
+- **Current Milestone**: `M11 — Security Hardening`
+- **Status**: **Implementation complete** (Verified with 362 Passing Tests)
 - **Target Release**: Version 1.0.0 (Windows)
-- **Next Milestone**: `M11 — Security Hardening`
+- **Previous Milestone**: `M10 — Clipboard Security` (Complete, verified)
+- **Next Milestone**: `M12 — Packaging & Distribution`
 - **Note on M9**: Milestone M9 (Password Generator) was permanently removed from the roadmap by user instruction.
 
 ---
@@ -234,31 +235,52 @@
 - **Testing**: 24 automated unit and UI tests in `tests/test_clipboard_service.py` and `tests/test_ui_clipboard.py`.
 - **Manual Verification**: Script `scripts/verify_m10.py` verified all 27 Section 19 steps.
 
+### Milestone 11 (M11 — Security Hardening)
+- **Security Audit**: Completed a 27-area comprehensive audit of M0 through M10 implementations against `docs/THREAT_MODEL.md` (0 Critical, 0 High, 1 Medium, 2 Low, 3 Informational findings).
+- **Deterministic KEK Memory Erasure (`SEC-M11-01` / M11.1)**:
+  - Added `as_bytearray: bool = False` option to `derive_kek()` in `app/crypto/kdf.py`.
+  - Refactored `VaultService.create_vault()`, `unlock_vault()`, and `change_master_password()` to store derived KEK material in mutable `bytearray` containers.
+  - Guaranteed `zero_buffer()` execution inside `finally` blocks immediately upon completion or failure of DEK wrapping/unwrapping.
+  - Converted to immutable `bytes(kek)` only at the exact point of invocation into cryptography's `AESGCM`.
+- **Transient Password Buffer Zeroing (`SEC-M11-02` / M11.2)**:
+  - In `app/crypto/kdf.py`, converted encoded master password to a mutable `bytearray` before passing to Argon2id CFFI.
+  - Explicitly zeroed the transient mutable password buffer with `zero_buffer()` in `finally`.
+  - Preserved documented limitations regarding CPython string immutability.
+- **Atomic In-Memory State Updates (`SEC-M11-03` / M11.3)**:
+  - Refactored `VaultService.save_vault()` to construct prepared payload and header copies separately.
+  - In-memory `target_vault.payload["updated_at"]`, `header`, and `raw_json` are committed only *after* `write_vault_file()` returns successfully.
+  - Any disk write or encryption failure leaves active in-memory session state completely unmodified, preventing memory-disk divergence.
+- **Constant-Time Password Reuse Comparison (`SEC-M11-04` / M11.4)**:
+  - Introduced `PasswordReuseError` inheriting from `InvalidPasswordInputError` in `app/core/exceptions.py`.
+  - Hardened `change_master_password()` to use `hmac.compare_digest(cur_pwd_str, new_pwd_str)` to prevent timing side channels.
+- **Security Regression Test Suite (`tests/test_m11_security_hardening.py`)**:
+  - Implemented 9 dedicated regression tests verifying KEK zeroing, KDF password buffer zeroing, atomic save failure rollback, and constant-time reuse detection.
+  - Total test suite count increased to 362 passing tests (100% pass rate).
+
 ---
 
-## 3. What is Intentionally NOT Implemented in M10
+## 3. What is Intentionally NOT Implemented in M11
 
 In strict adherence to project boundaries and milestone separation:
-- **Password Generator**: Permanently removed from roadmap per user instructions.
-- **Clipboard History / Clipboard Monitoring**: Excluded; SecureVault does not monitor external clipboard.
-- **Configurable Clipboard Timeout**: Excluded; hardcoded 30-second invariant.
-- **CSV Export / Cloud Sync / Networking**: Permanently excluded from SecureVault.
-- **Biometrics / Hardware Tokens**: Excluded from Version 1.
+- **No Architectural Redesign**: Envelope KEK/DEK design, Argon2id parameters, and AES-256-GCM AEAD construction are preserved.
+- **No Format Changes**: Vault binary format (`.svault` 134-byte header) and AAD design remain strictly identical.
+- **No False Memory Guarantees**: Acknowledged inherent CPython interpreter limitations regarding high-level immutable `str` objects.
+- **No Feature Creep**: Zero password generators, cloud sync, SQLite, CSV export, or networking.
 
 ---
 
 ## 4. Current Task
-Milestone M10 (Clipboard Security) COMPLETE, tested, and verified.
+Milestone M11 (Security Hardening) COMPLETE, tested, and verified (362 tests passing).
 
 ---
 
 ## 5. Next Task
-Milestone M11 — Security Hardening.
+Milestone M12 — Packaging & Distribution.
 
 ---
 
 ## 6. Known Issues / Unresolved Items
-- **None**: All M10 requirements, username copy, password copy, 30-second auto-clear, ownership protection, lock integration, and 353/353 tests pass with 100% pass rate.
+- **None**: All M11 hardening tasks implemented; 362/362 automated tests pass with 100% pass rate. Verification scripts `verify_m7.py`, `verify_m8.py`, and `verify_m10.py` pass cleanly.
 
 ---
 
@@ -270,5 +292,6 @@ Milestone M11 — Security Hardening.
 - **ADR-015**: Event-Driven Inactivity Monitoring & Two-Stage Auto-Lock Lifecycle.
 - **ADR-016**: Non-Sensitive Preferences Architecture, Centralized Dynamic Theming, and Cryptographic Master Password Rotation.
 - **ADR-017**: Centralized Clipboard Security Service, Strict Ownership Verification, and Auto-Clear Watchdog.
+- **ADR-018**: Deterministic Ephemeral Buffer Hygiene, In-Memory Save Atomicity, and Constant-Time Equality Hardening.
 
 
