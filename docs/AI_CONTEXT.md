@@ -13,7 +13,7 @@ SecureVault is an open-source, completely offline, zero-cloud desktop password m
 - **Language**: Python 3.11+ (Runtime: Python 3.11.4 in `.venv/`)
 - **GUI Framework**: PySide6 (Qt 6 for Python)
 - **Cryptography**: `argon2-cffi` (Argon2id KDF), standard `secrets` CSPRNG, `cryptography` (AES-256-GCM AEAD, key wrapping, payload encryption)
-- **Testing**: `pytest` (233 passing tests)
+- **Testing**: `pytest` (268 passing tests)
 - **Platform**: Windows 10/11 64-bit first (`%LOCALAPPDATA%\SecureVault\`); portable design for Linux.
 
 ---
@@ -26,11 +26,11 @@ SecureVault/
 │   ├── core/             # AppConfig, Safe Logging, Domain Exceptions, Validation
 │   ├── crypto/           # Argon2id KDF (kdf.py) & AES-256-GCM (encryption.py)
 │   ├── storage/          # 134-byte binary header (vault_format.py) & atomic I/O (vault_file.py)
-│   ├── services/         # VaultService, AuthenticationService, InitializationService, CredentialService
+│   ├── services/         # VaultService, AuthenticationService, InitializationService, CredentialService, SessionManager
 │   ├── models/           # Credential domain model (id, title, username, password, notes)
 │   └── ui/               # ApplicationController, LockedView, UnlockedView, SetupWizard, View/Edit Dialogs
 │       └── setup/        # Multi-step QWizard onboarding pages
-├── tests/                # Pytest unit & integration test suites (233 tests)
+├── tests/                # Pytest unit & integration test suites (268 tests)
 ├── docs/                 # Architectural, security, and design specifications
 ├── main.py               # Application entry point (GUI launch + headless flags)
 ├── requirements.txt      # Runtime dependencies (PySide6, argon2-cffi, cryptography)
@@ -49,12 +49,14 @@ SecureVault/
   - `M3 — Master Authentication Foundation` (Complete)
   - `M4 — Cryptographic Vault Implementation` (Complete)
   - `M5 — Credential CRUD, Encrypted Persistence & View/Edit UI` (Complete)
-  - `M6 — Main Vault UI + Search` (Complete / Ready for Review)
-- **Next Milestone**: `M7 — Session Security & Auto-Lock`
-- **Location of M6 Main Vault & Search Layer**:
-  - `app/ui/unlocked_view.py`: `UnlockedView` with search bar (`QLineEdit`), live in-memory filtering (`title`, `username`, `notes`), password exclusion security boundary, counter, empty states, and card list integration.
-  - `tests/test_ui_search.py`: Comprehensive automated search and UI tests.
-- *Do not begin M7 without user instruction.*
+  - `M6 — Main Vault UI + Search` (Complete)
+  - `M7 — Session Security & Auto-Lock` (COMPLETE / Manually Verified)
+- **Next Milestone**: `M8 — Settings + Theme`
+- **Location of M7 Session & Auto-Lock Layer**:
+  - `app/services/session_manager.py`: `SessionManager` managing 15-second grace period + 2-minute countdown (total 2m15s inactivity timeout), `ActivityEventFilter` monitoring KeyPress, MouseButtonPress, and Wheel events (ignoring MouseMove alone).
+  - `app/ui/unlocked_view.py`: Top-right unobtrusive `QLabel` (`Auto-lock: MM:SS`), single-cell `QGridLayout` overlay for header center invariant, dynamic visibility, dialog cleanup on timeout, unified lock flow.
+  - `tests/test_session_management.py`: 29 automated tests covering all M7 requirements.
+- *Do not begin M8 without user instruction.*
 
 ---
 

@@ -2,10 +2,10 @@
 
 ## 1. Milestone Tracking
 
-- **Current Milestone**: `M6 — Main Vault UI + Search`
-- **Status**: **Implementation Complete / Ready for Review**
+- **Current Milestone**: `M7 — Session Management & Auto-Lock`
+- **Status**: **COMPLETE (Manually Verified)**
 - **Target Release**: Version 1.0.0 (Windows)
-- **Next Milestone**: `M7 — Session Security & Auto-Lock`
+- **Next Milestone**: `M8 — Settings + Theme`
 
 ---
 
@@ -149,33 +149,64 @@
   - Session lock clears search query text buffer.
 - **Testing**: 233 automated tests passing across entire suite (17 new dedicated M6 tests in `tests/test_ui_search.py`).
 
+### Milestone 7 (M7 — Session Management & Auto-Lock)
+- **Session Manager Architecture (`app/services/session_manager.py`)**:
+  - Implemented `SessionManager`, `SessionInactivityState`, and `ActivityEventFilter`.
+  - State machine: `INACTIVE`, `ACTIVE`, `GRACE_PERIOD`, `COUNTDOWN`, `LOCKED`.
+  - Timing model:
+    - 15-second hidden grace period (`ACTIVITY_GRACE_SECONDS = 15`).
+    - 2-minute visible countdown (`INACTIVITY_TIMEOUT_SECONDS = 120`).
+    - Total inactivity before automatic lock: 2 minutes 15 seconds.
+  - Reset Behavior:
+    - Activity detected: typing (`KeyPress`), clicking (`MouseButtonPress`), scrolling (`Wheel`).
+    - **CRITICAL SECURITY / UX BOUNDARY**: Mouse movement alone (`MouseMove`) strictly does NOT reset inactivity.
+    - Any interaction resets the session, stops countdown, hides countdown label, and starts a fresh 15-second grace period.
+- **Top-Right Auto-Lock Countdown UI & Header Alignment (`app/ui/unlocked_view.py`)**:
+  - Unobtrusive `QLabel` placed in the top-right corner of the Unlocked View.
+  - Positioned within a single-cell `QGridLayout` overlay on the header row: `header` is centered against the full window width (`550.0px`) while `countdown_label` is aligned to the top-right (`AlignRight | AlignVCenter`).
+  - Hiding or showing the countdown label has zero effect on header geometry; the title remains centered at all times.
+  - Hidden during active user interaction and throughout the 15-second grace period.
+  - Appears after 15 seconds of inactivity displaying `Auto-lock: 02:00`.
+  - Decrements once per second (`01:59`, `01:58`, ..., `00:01`, `00:00`).
+  - Disappears immediately upon typing, clicking, or scrolling.
+- **Login / LockedView Masked Password Enforcement (`app/ui/locked_view.py`)**:
+  - Master password field on LockedView remains strictly masked (`EchoMode.Password`) with no "Show Password" checkbox.
+- **Automatic & Manual Lock Unification**:
+  - Reaches `00:00` -> emits `timeout_triggered` signal -> invokes existing `lock_vault` workflow.
+  - Any open modals/dialogs (`AddCredentialDialog`, `EditCredentialDialog`, `ViewCredentialDialog`, etc.) are automatically dismissed.
+  - Zeros in-memory DEK buffer and clears decrypted vault data.
+  - Transitions to `LockedView` requiring master password re-entry.
+  - Manual "Lock Vault" button and window close stop all timers and clean up event filters.
+  - Zero sensitive data (keys, passwords, credentials) is ever stored in session/timer objects.
+- **Testing**: 268 automated tests passing across entire suite (29 dedicated M7 tests in `tests/test_session_management.py`).
+- **Manual Verification**: All manual verification steps (A through P) executed and verified.
+
 ---
 
-## 3. What is Intentionally NOT Implemented in M6
+## 3. What is Intentionally NOT Implemented in M7
 
 In strict adherence to project boundaries:
-- **Auto-Lock Timers**: Scheduled for M7.
-- **Settings & Theming**: Scheduled for M8.
+- **Configurable Auto-Lock Timeout / Settings UI**: Scheduled for M8.
+- **Theme System (Dark / Light)**: Scheduled for M8.
 - **Password Generator**: Scheduled for M9.
 - **Clipboard Management**: Scheduled for M10.
 - **Password Rotation UI**: Scheduled for M11.
 - **CSV Export / Cloud Sync**: Permanently excluded from SecureVault.
-- **Categories / Tags / Favorites**: Intentionally excluded from M6 scope.
 
 ---
 
 ## 4. Current Task
-M6 Main Vault UI + Search complete, tested, and ready for human review.
+M7 Session Management & Auto-Lock COMPLETE and verified. Ready for Git commit and push.
 
 ---
 
 ## 5. Next Task
-M7 — Session Security & Auto-Lock.
+M8 — Settings + Theme.
 
 ---
 
 ## 6. Known Issues / Unresolved Items
-- **None**: All M6 requirements, search rules, empty states, zero-persistence guarantee, password non-searchability, and 233/233 tests pass with 100% pass rate.
+- **None**: All M7 specifications, 15s grace, 2m countdown, top-right UI, header alignment, typing/clicking/scrolling reset, mouse movement non-reset, auto-lock re-use, LockedView password masking, and 268/268 tests pass with 100% pass rate.
 
 ---
 
@@ -184,4 +215,5 @@ M7 — Session Security & Auto-Lock.
 - **ADR-012**: Zero-Verifier / KEK-Only Master Authentication.
 - **ADR-013**: Decoupled AAD Envelope Architecture for Atomic Key Rotation.
 - **ADR-014**: In-Memory Credential CRUD & Immediate Atomic Vault Re-Encryption.
+- **ADR-015**: Event-Driven Inactivity Monitoring & Two-Stage Auto-Lock Lifecycle.
 

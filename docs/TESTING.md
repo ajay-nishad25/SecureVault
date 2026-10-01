@@ -193,11 +193,40 @@ SecureVault's testing architecture enforces high-reliability standards appropria
   - **Consistent Screen Transitions**: Verifies transitions across `SetupWizard -> LockedView -> UnlockedView -> LockedView` maintain 1100 × 780 px.
   - **Centering Utility**: Verifies `center_window` positions top-level widgets correctly without error.
 
+### 2.14 Session Management & Auto-Lock Tests (M7)
+- `tests/test_session_management.py` (29 tests):
+  - **Session Lifecycle**: Verifies session starts only upon unlocking; inactive in LockedView; stopping session clears state.
+  - **Interaction Detection**:
+    - Typing (`KeyPress`) resets inactivity and restarts 15s grace.
+    - Clicking (`MouseButtonPress`) resets inactivity and restarts 15s grace.
+    - Scrolling (`Wheel`) resets inactivity and restarts 15s grace.
+    - **Mouse Movement Invariant**: Explicitly verifies `MouseMove` does NOT reset inactivity.
+  - **Timing & Visibility**:
+    - Countdown hidden during active user interaction.
+    - Countdown hidden throughout 15-second grace period.
+    - Countdown becomes visible after 15 seconds.
+    - Countdown begins at exactly `02:00` (120s) and decrements once per second (`01:59`, `01:58`, etc.).
+    - Interaction during countdown immediately hides it and restarts 15-second grace period.
+    - Countdown reaching `00:00` triggers `timeout_triggered` signal.
+  - **Header Alignment Invariant**:
+    - Verifies "🔓 SecureVault — Unlocked" header remains at exact horizontal center (`window.width() / 2`) across all timer visibility states.
+  - **Locking & Security**:
+    - Automatic lock triggers existing vault lock mechanism and memory wiping.
+    - Master password required again to re-enter vault.
+    - Manual "Lock Vault" button immediately cancels all timers and hides countdown.
+    - Window close stops timers and cleans up Qt event filters.
+    - Zero sensitive data (passwords, keys, credentials) stored in `SessionManager`.
+  - **UI Controls Integration**:
+    - Search typing resets session.
+    - Credential list scrolling resets session.
+    - Card View/Edit/Delete interactions reset session.
+    - Open modal dialogs (`AddCredentialDialog`, `EditCredentialDialog`, `ViewCredentialDialog`) dismissed automatically on auto-lock timeout.
+
 ---
 
 ## 3. Future Test Suites (Scheduled per Roadmap)
 
-- **M7 (Session & Auto-Lock)**: 10-minute inactivity timer expiration, activity event reset, lock memory purging.
+- **M8 (Settings & Theming)**: Settings persistence, configurable auto-lock duration, dark/light theme switching.
 - **M10 (Clipboard Security)**: 30-second clipboard watchdog clearing.
 
 ---
@@ -209,4 +238,4 @@ All tests are executed using pytest:
 # Run full test suite
 .\.venv\Scripts\python.exe -m pytest -v
 ```
-*Current test status: 239 passed, 0 failed.*
+*Current test status: 268 passed, 0 failed.*

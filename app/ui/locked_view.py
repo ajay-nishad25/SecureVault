@@ -230,7 +230,7 @@ class LockedView(QWidget):
         if not app:
             return
 
-        screen = self.screen() or app.primaryScreen()
+        screen = app.primaryScreen()
 
         if screen:
             geo = screen.availableGeometry()

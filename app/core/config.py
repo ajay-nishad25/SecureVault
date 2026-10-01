@@ -56,6 +56,10 @@ def get_default_data_dir() -> Path:
 WINDOW_WIDTH: int = 1100
 WINDOW_HEIGHT: int = 780
 
+# Session inactivity timing constants (Milestone M7)
+ACTIVITY_GRACE_SECONDS: int = 15
+INACTIVITY_TIMEOUT_SECONDS: int = 120
+
 
 @dataclass(frozen=True)
 class AppConfig:

@@ -86,16 +86,20 @@ Each milestone is discrete, testable, and gated by defined completion criteria.
   - Delete confirmation modal preservation and smooth pixel scrolling.
 - **Dependencies**: M5.
 
-### M7 — Session & Auto-Lock
-- **Objective**: Implement the session security supervisor, activity watchdog, and memory purging.
+### M7 — Session & Auto-Lock (Completed)
+- **Objective**: Implement session inactivity management, grace period, auto-lock countdown, and automatic lock.
 - **Key Deliverables**:
-  - `SessionManager` tracking `UNINITIALIZED`, `LOCKED`, and `UNLOCKED` states.
-  - Global Qt event filter capturing mouse/keyboard interactions to reset the 10-minute timer.
-  - Immediate `[ Lock Vault ]` action (`Ctrl+L`).
-  - Lock sequence: clears decrypted data, best-effort zeroing of mutable key buffers, closes modals, displays `LoginView`.
+  - `SessionManager` managing inactivity lifecycle (`INACTIVE`, `ACTIVE`, `GRACE_PERIOD`, `COUNTDOWN`, `LOCKED`).
+  - Inactivity model: 15-second hidden grace period (`ACTIVITY_GRACE_SECONDS = 15`) + 2-minute visible countdown (`INACTIVITY_TIMEOUT_SECONDS = 120`) = 2m15s total timeout.
+  - Interaction filter: captures typing (`KeyPress`), clicking (`MouseButtonPress`), and scrolling (`Wheel`).
+  - Mouse movement alone strictly ignored and does NOT reset timer.
+  - Top-right unobtrusive countdown label (`Auto-lock: MM:SS`) in `UnlockedView` with independent single-cell overlay preserving title centering in all states.
+  - Automatic lock unified with existing vault lock mechanism (zeroing DEK, closing modals, returning to `LockedView`).
+  - Comprehensive 29-test suite in `tests/test_session_management.py`.
+  - Manual verification completed across all test steps A through P.
 - **Dependencies**: M6.
 
-### M8 — Settings + Theme
+### M8 — Settings + Theme (Next)
 - **Objective**: Implement application preferences, persistent configuration, and UI theming.
 - **Key Deliverables**:
   - `SettingsManager` reading/writing non-sensitive JSON in `%LOCALAPPDATA%\SecureVault\settings.json`.

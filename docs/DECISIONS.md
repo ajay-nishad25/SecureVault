@@ -168,4 +168,25 @@ Each record details the context, decision, and consequences.
   - *Positive*: Reuses vetted M4 AES-256-GCM primitives without cryptographic duplication.
   - *Positive*: In-memory representation remains synchronized with persistent `.svault` storage.
 
+---
+
+## ADR-015: Event-Driven Inactivity Monitoring & Two-Stage Auto-Lock Lifecycle
+- **Status**: Accepted (Milestone M7)
+- **Context**: In Milestone M7, SecureVault requires automated session protection to secure active unlocked vaults against unattended physical access. The system must reliably detect user inactivity, alert the user with a countdown without visual distraction during active work, avoid false resets, and automatically lock the vault without inventing duplicate cryptographic or thread-based locking mechanisms.
+- **Decision**:
+  1. **Two-Stage Timing Model**: Total inactivity timeout is fixed at 2 minutes 15 seconds (135 seconds), divided into:
+     - 15-second hidden grace period: Countdown is completely hidden.
+     - 2-minute visible countdown: Displays `Auto-lock: 02:00` decrementing once per second to `00:00`.
+  2. **Strict Activity Whitelist**: Activity detection is handled centrally via `ActivityEventFilter` on the `QApplication` instance, capturing `KeyPress` (typing), `MouseButtonPress` (clicking), and `Wheel` (scrolling).
+  3. **Mouse Movement Exclusion**: Mouse movement alone (`MouseMove`) is strictly excluded from resetting inactivity to prevent unintended resets from ambient pointer drift or bumping.
+  4. **Single-Cell Overlay UI Alignment**: The top-right countdown label is positioned within a single-cell `QGridLayout` overlay on the header row rather than an inline hbox with fixed spacers, ensuring the "🔓 SecureVault — Unlocked" header remains centered across the entire window width regardless of timer visibility.
+  5. **Unified Lock Path**: Inactivity timeout (`00:00`) dispatches through the existing `VaultService.lock_vault()` workflow, zeroing the active in-memory DEK, dismissing any open modal dialogs, and returning to `LockedView`.
+  6. **Zero Secret Storage**: `SessionManager` stores only timing counters and state enums; no master passwords, KEKs, DEKs, or credentials are ever stored or referenced.
+  7. **No Background Worker Threads for Timers**: Timing is managed entirely via Qt's native event-loop `QTimer` primitives (`grace_timer` and `countdown_timer`), preventing thread-synchronization race conditions and deadlocks.
+- **Consequences**:
+  - *Positive*: Robust, leak-free session security with zero CPU overhead when idle.
+  - *Positive*: Header alignment remains pixel-perfect across all timer states.
+  - *Positive*: Single cryptographic lock mechanism avoids duplicate security maintenance.
+  - *Trade-off*: Event filter must be properly uninstalled on lock or view teardown to avoid Qt use-after-free conditions.
+
 

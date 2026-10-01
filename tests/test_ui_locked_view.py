@@ -50,18 +50,13 @@ def test_locked_view_displays_login_id(
     assert isolated_init_service.get_login_id() == "test_locked_user"
 
 
-def test_locked_view_password_visibility_toggle(
+def test_locked_view_password_masked(
     qapp: QApplication, isolated_init_service: InitializationService
 ) -> None:
-    """Verify password visibility toggle button changes echo mode."""
+    """Verify password field is masked by default and has no show password toggle."""
     view = LockedView(init_service=isolated_init_service)
     assert view.password_input.echoMode() == QLineEdit.EchoMode.Password
-
-    view.show_password_cb.setChecked(True)
-    assert view.password_input.echoMode() == QLineEdit.EchoMode.Normal
-
-    view.show_password_cb.setChecked(False)
-    assert view.password_input.echoMode() == QLineEdit.EchoMode.Password
+    assert not hasattr(view, "show_password_cb")
 
 
 def test_locked_view_unlock_empty_password_shows_error(

@@ -13,6 +13,11 @@ This package encapsulates application-level domain and auxiliary services:
 from app.services.authentication import AuthenticationResult, AuthenticationService
 from app.services.credential_service import CredentialService
 from app.services.initialization import InitializationService, SessionState
+from app.services.session_manager import (
+    ActivityEventFilter,
+    SessionInactivityState,
+    SessionManager,
+)
 from app.services.vault_service import (
     DecryptedVault,
     VaultService,
@@ -28,4 +33,7 @@ __all__ = [
     "DecryptedVault",
     "CredentialService",
     "create_empty_vault_payload",
+    "SessionManager",
+    "SessionInactivityState",
+    "ActivityEventFilter",
 ]

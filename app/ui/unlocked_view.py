@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QFormLayout,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -37,6 +38,7 @@ from app.core.exceptions import CredentialValidationError, VaultLockedError
 from app.core.logging import get_logger
 from app.models.credential import Credential
 from app.services.credential_service import CredentialService
+from app.services.session_manager import SessionManager
 from app.services.vault_service import DecryptedVault, VaultService
 
 logger = get_logger("ui.unlocked_view")
@@ -458,6 +460,7 @@ class UnlockedView(QWidget):
         login_id: str = "Default User",
         vault_service: VaultService | None = None,
         credential_service: CredentialService | None = None,
+        session_manager: SessionManager | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -467,6 +470,14 @@ class UnlockedView(QWidget):
         self._credential_service = credential_service or (
             CredentialService(vault_service) if vault_service else None
         )
+        self._session_manager = session_manager or SessionManager(parent=self)
+
+        # Wire session manager signals
+        self._session_manager.countdown_updated.connect(self._on_countdown_updated)
+        self._session_manager.countdown_visibility_changed.connect(
+            self._on_countdown_visibility_changed
+        )
+        self._session_manager.timeout_triggered.connect(self._on_auto_lock_timeout)
 
         self.setWindowTitle("SecureVault — Vault Unlocked")
         self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
@@ -476,11 +487,30 @@ class UnlockedView(QWidget):
         layout.setSpacing(10)
         layout.setContentsMargins(28, 18, 28, 18)
 
-        # Header
+        # Top Header Area: Centered Title with Independent Top-Right Countdown
+        header_grid = QGridLayout()
+        header_grid.setContentsMargins(0, 0, 0, 0)
+
         header = QLabel("🔓 SecureVault — Unlocked")
         header.setStyleSheet("font-size: 20px; font-weight: bold; color: #44bb44;")
         header.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(header)
+
+        # Top-right countdown label (independent overlay, does not affect header centering)
+        self.countdown_label = QLabel("Auto-lock: 02:00")
+        self.countdown_label.setObjectName("AutoLockCountdown")
+        self.countdown_label.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+        self.countdown_label.setStyleSheet(
+            "color: #e3b341; font-size: 12px; font-family: monospace; font-weight: 600;"
+        )
+        self.countdown_label.setVisible(False)
+
+        header_grid.addWidget(header, 0, 0)
+        header_grid.addWidget(
+            self.countdown_label, 0, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+        layout.addLayout(header_grid)
 
         # Profile & Vault Info
         user_info = QLabel(f"Profile: <b>{self._login_id}</b>")
@@ -650,7 +680,7 @@ class UnlockedView(QWidget):
         app = QApplication.instance()
         if not app:
             return
-        screen = self.screen() or app.primaryScreen()
+        screen = app.primaryScreen()
         if screen:
             geo = screen.availableGeometry()
             x = geo.x() + max(0, (geo.width() - self.width()) // 2)
@@ -867,9 +897,44 @@ class UnlockedView(QWidget):
         if cred_id:
             self._on_view_credential(cred_id)
 
+    @property
+    def session_manager(self) -> SessionManager:
+        """Return the active session manager."""
+        return self._session_manager
+
+    def _on_countdown_updated(self, remaining_seconds: int, text: str) -> None:
+        """Update the countdown label text."""
+        self.countdown_label.setText(text)
+
+    def _on_countdown_visibility_changed(self, visible: bool) -> None:
+        """Show or hide the countdown label."""
+        self.countdown_label.setVisible(visible)
+
+    def _on_auto_lock_timeout(self) -> None:
+        """Handle automatic lock triggered when inactivity reaches 00:00."""
+        logger.info("Session inactivity reached 00:00. Automatically locking vault.")
+        for child in self.findChildren(QDialog):
+            if child.isVisible():
+                child.reject()
+        self._on_lock_clicked()
+
+    def showEvent(self, event) -> None:
+        """Start the session manager inactivity monitoring when view is shown."""
+        super().showEvent(event)
+        if self._session_manager and not self._session_manager.is_active:
+            self._session_manager.start_session()
+
+    def closeEvent(self, event) -> None:
+        """Stop session inactivity monitoring and timers upon window close."""
+        if self._session_manager:
+            self._session_manager.stop_session()
+        super().closeEvent(event)
+
     def _on_lock_clicked(self) -> None:
         """Lock active session, zero memory buffers, and emit lock signal."""
         logger.info("Lock requested from UnlockedView.")
+        if self._session_manager:
+            self._session_manager.stop_session()
         self.search_input.clear()
         self._vault.lock()
         self.lock_requested.emit()

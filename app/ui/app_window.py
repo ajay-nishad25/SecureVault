@@ -15,6 +15,7 @@ from app.core.config import AppConfig, WINDOW_HEIGHT, WINDOW_WIDTH
 from app.core.logging import get_logger
 from app.services.authentication import AuthenticationService
 from app.services.initialization import InitializationService
+from app.services.session_manager import SessionManager
 from app.services.vault_service import DecryptedVault, VaultService
 from app.ui.locked_view import LockedView
 from app.ui.setup.wizard import SetupWizard
@@ -28,7 +29,7 @@ def center_window(widget: QWidget) -> None:
     app = QApplication.instance()
     if not app:
         return
-    screen = widget.screen() or app.primaryScreen()
+    screen = app.primaryScreen()
     if screen:
         geo = screen.availableGeometry()
         x = geo.x() + max(0, (geo.width() - widget.width()) // 2)
@@ -45,11 +46,13 @@ class ApplicationController:
         init_service: InitializationService | None = None,
         auth_service: AuthenticationService | None = None,
         vault_service: VaultService | None = None,
+        session_manager: SessionManager | None = None,
     ) -> None:
         self.config = config or AppConfig()
         self.init_service = init_service or InitializationService(self.config)
         self.auth_service = auth_service or AuthenticationService()
         self.vault_service = vault_service or VaultService(self.config)
+        self.session_manager = session_manager
         self.current_window = None
 
     def start(self) -> int:
@@ -106,6 +109,7 @@ class ApplicationController:
             vault=vault,
             login_id=login_id,
             vault_service=self.vault_service,
+            session_manager=self.session_manager,
         )
         self.current_window = unlocked_view
 
@@ -123,6 +127,8 @@ class ApplicationController:
 
     def _on_vault_locked(self) -> None:
         logger.info("Lock requested. Locking vault session and transitioning to LOCKED view.")
+        if self.current_window and hasattr(self.current_window, "session_manager"):
+            self.current_window.session_manager.stop_session()
         self.vault_service.lock_vault()
         if self.current_window:
             self.current_window.close()
@@ -137,6 +143,7 @@ def run_gui(
     config: AppConfig | None = None,
     auth_service: AuthenticationService | None = None,
     vault_service: VaultService | None = None,
+    session_manager: SessionManager | None = None,
 ) -> int:
     """Launch the PySide6 desktop GUI application.
 
@@ -154,6 +161,7 @@ def run_gui(
         config=config,
         auth_service=auth_service,
         vault_service=vault_service,
+        session_manager=session_manager,
     )
     controller.start()
 

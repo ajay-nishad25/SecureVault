@@ -109,11 +109,19 @@ The user experience adheres to four core tenets:
 
 ---
 
-### Screen 4: Main Vault Screen (Milestone M6 Implemented)
+### Screen 4: Main Vault Screen (Milestones M6 & M7 Implemented)
 - **Context**: The primary operational dashboard while unlocked (`UNLOCKED` state).
 - **Layout (`UnlockedView`)**:
   - **Header & Profile Information**:
     - Status Banner: `🔓 SecureVault — Unlocked` (green status header).
+    - Top-Right Auto-Lock Countdown:
+      - Small, unobtrusive `QLabel` positioned in the top-right corner.
+      - Default/Active State: **Hidden**.
+      - Grace Period (first 15 seconds of inactivity): **Hidden**.
+      - Inactivity Countdown (after 15 seconds without activity): **Visible**, starts at `Auto-lock: 02:00` and decrements once per second (`01:59`, `01:58`, ..., `00:00`).
+      - On Interaction: Any typing, clicking, or scrolling immediately hides the countdown and restarts the 15-second grace period.
+      - Mouse movement alone: Explicitly ignored; does not hide or reset the countdown.
+      - Automatic Lock: Upon reaching `00:00`, auto-lock triggers, active dialogs close, and view transitions to `LockedView`.
     - Profile: `Profile: <b>{login_id}</b>`.
     - Vault Metadata: `Vault ID: <code>{vault_id}</code>`.
   - **Search Controls**:
@@ -136,7 +144,7 @@ The user experience adheres to four core tenets:
       - `[ 🗑 Delete ]`: Triggers `Confirm Deletion` modal dialog.
   - **Bottom Global Action Bar**:
     - `[ ➕ Add Credential ]`: Opens `AddCredentialDialog`.
-    - `[ 🔒 Lock Vault ]`: Zeroes memory buffers, emits `lock_requested`, and closes session.
+    - `[ 🔒 Lock Vault ]`: Zeroes memory buffers, cancels/cleans up session timers, emits `lock_requested`, and closes session.
     - `[ Exit ]`: Closes application window.
 
 ---
