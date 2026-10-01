@@ -2,11 +2,11 @@
 
 ## 1. Milestone Tracking
 
-- **Current Milestone**: `M11 — Security Hardening`
-- **Status**: **Implementation complete** (Verified with 362 Passing Tests)
+- **Current Milestone**: `M13 — Windows Packaging`
+- **Status**: **Implementation & Verification Complete** (378 Passing Tests + Verified Windows Installer)
 - **Target Release**: Version 1.0.0 (Windows)
-- **Previous Milestone**: `M10 — Clipboard Security` (Complete, verified)
-- **Next Milestone**: `M12 — Packaging & Distribution`
+- **Previous Milestone**: `M11 — Security Hardening` (Complete, verified)
+- **Next Milestone**: `M14 — Final Security Review & Open Source Release`
 - **Note on M9**: Milestone M9 (Password Generator) was permanently removed from the roadmap by user instruction.
 
 ---
@@ -280,32 +280,54 @@
   - **Main Vault Exit Button Removed**: Removed redundant `[ Exit ]` button from `UnlockedView`. Bottom bar now cleanly presents `[ ➕ Add Credential ]`, `[ ⚙ Settings ]`, and `[ 🔒 Lock Vault ]`.
 - **Test Integrity**:
   - Maintained complete test suite and isolated testing helpers (`InitializationService.reset()` preserved for test fixtures).
-  - All 377 unit and integration tests passing; verification scripts (`verify_m7.py`, `verify_m8.py`, `verify_m10.py`) and M11 security hardening tests verified.
+  - All 378 unit and integration tests passing; verification scripts (`verify_m7.py`, `verify_m8.py`, `verify_m10.py`, `verify_m13_packaging.py`, `verify_m13_installer.py`) verified.
+
+### Milestone 13 (M13 — Windows Packaging & Installer)
+- **PyInstaller Specification (`packaging/SecureVault.spec`)**:
+  - Configured maintainable onedir, windowed (`console=False`) build embedding `assets/SecureVault.ico`.
+  - Clean inclusion of bundled assets (`assets/SecureVault.ico` mapped to `assets/`).
+  - Explicit hidden imports for `argon2`, `cryptography`, and `PySide6`.
+  - Excluded test suites, fixtures, development harnesses, and unnecessary PySide6 modules (`QtNetwork`, `QtQml`, `QtQuick`, `QtOpenGL`).
+- **Production Build Output**:
+  - `dist/SecureVault/SecureVault.exe` (2,061,867 bytes).
+  - Clean, unpolluted directory bundle running entirely independent of Python or `.venv`.
+  - Verified no console window opens, native Windows icon is displayed, and `AppUserModelID` groups taskbar windows correctly.
+- **Inno Setup 6 Installer (`packaging/SecureVault.iss`)**:
+  - Compiled using Inno Setup 6 CLI (`ISCC.exe`) with `lzma2/ultra64` solid compression.
+  - Produced `dist_installer/SecureVault-Setup-0.1.0.exe` (34,894,046 bytes).
+  - Configured installation to `{autopf}\SecureVault` with Start Menu and optional Desktop shortcuts.
+  - Integrated `assets/SecureVault.ico` as installer and uninstaller icon.
+- **Critical User Data Isolation & Preservation**:
+  - User data path strictly resides in `%LOCALAPPDATA%\SecureVault\`.
+  - Application binaries strictly reside in `{autopf}\SecureVault\`.
+  - Installer never touches or purges `%LOCALAPPDATA%\SecureVault\` during uninstallation.
+  - Automated test verified: simulated user vault (`vault.svault`, `init_state.json`, `settings.json`) survived uninstallation bit-for-bit identical (SHA256 verified) and reopened flawlessly after reinstallation.
+- **Package Security Verification**:
+  - Verified no development secrets, `.env` files, `.svault` vaults, `init_state.json`, `settings.json`, tests, or developer harnesses are present in the distributed package or installer.
 
 ---
 
-## 3. What is Intentionally NOT Implemented in M11
+## 3. What is Intentionally NOT Implemented in M13
 
 In strict adherence to project boundaries and milestone separation:
-- **No Architectural Redesign**: Envelope KEK/DEK design, Argon2id parameters, and AES-256-GCM AEAD construction are preserved.
-- **No Format Changes**: Vault binary format (`.svault` 134-byte header) and AAD design remain strictly identical.
-- **No False Memory Guarantees**: Acknowledged inherent CPython interpreter limitations regarding high-level immutable `str` objects.
-- **No Feature Creep**: Zero password generators, cloud sync, SQLite, CSV export, or networking.
+- **No Architectural Redesign**: Cryptographic primitives, KEK/DEK envelope, and zero-verifier authentication preserved.
+- **No Feature Creep**: Zero network connectivity, telemetry, cloud sync, or external dependencies introduced.
+- **No Modification to Core Logic**: Application logic remains completely local and offline.
 
 ---
 
 ## 4. Current Task
-Pre-packaging production cleanup & UI/UX polish COMPLETE; developer controls and redundant exit buttons removed; focus restoration verified; test suite passing (377/377).
+Milestone M13 — Windows Packaging & Installer COMPLETE and verified.
 
 ---
 
 ## 5. Next Task
-Milestone M13 — Windows Packaging & Installer Preparation.
+Milestone M14 — Final Security Review & Open Source Release.
 
 ---
 
 ## 6. Known Issues / Unresolved Items
-- **None**: All production cleanup and UI/UX polish tasks implemented; 377/377 automated tests pass with 100% pass rate. Verification scripts `verify_m7.py`, `verify_m8.py`, and `verify_m10.py` pass cleanly.
+- **None**: Standalone executable and Windows installer fully verified; user data retention verified; 378/378 automated tests pass with 100% pass rate.
 
 ---
 
@@ -318,5 +340,6 @@ Milestone M13 — Windows Packaging & Installer Preparation.
 - **ADR-016**: Non-Sensitive Preferences Architecture, Centralized Dynamic Theming, and Cryptographic Master Password Rotation.
 - **ADR-017**: Centralized Clipboard Security Service, Strict Ownership Verification, and Auto-Clear Watchdog.
 - **ADR-018**: Deterministic Ephemeral Buffer Hygiene, In-Memory Save Atomicity, and Constant-Time Equality Hardening.
+- **ADR-019**: Production Windows Packaging, Isolated Data Lifecycle, and Guaranteed Uninstall Data Retention.
 
 

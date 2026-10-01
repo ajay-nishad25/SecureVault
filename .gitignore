@@ -11,6 +11,7 @@ __pycache__/
 build/
 develop-eggs/
 dist/
+dist_installer/
 downloads/
 eggs/
 .eggs/
@@ -29,6 +30,7 @@ MANIFEST
 # PyInstaller
 *.manifest
 *.spec
+!packaging/*.spec
 
 # Installer logs
 pip-log.txt

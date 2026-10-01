@@ -13,7 +13,7 @@ SecureVault is an open-source, completely offline, zero-cloud desktop password m
 - **Language**: Python 3.11+ (Runtime: Python 3.11.4 in `.venv/`)
 - **GUI Framework**: PySide6 (Qt 6 for Python)
 - **Cryptography**: `argon2-cffi` (Argon2id KDF), standard `secrets` CSPRNG, `cryptography` (AES-256-GCM AEAD, key wrapping, payload encryption)
-- **Testing**: `pytest` (362 passing tests)
+- **Testing**: `pytest` (378 passing tests)
 - **Platform**: Windows 10/11 64-bit first (`%LOCALAPPDATA%\SecureVault\`); portable design for Linux.
 
 ---
@@ -30,7 +30,10 @@ SecureVault/
 │   ├── models/           # Credential domain model (id, title, username, password, notes)
 │   └── ui/               # ApplicationController, LockedView, UnlockedView, SetupWizard, View/Edit Dialogs, SettingsDialog, ThemeManager
 │       └── setup/        # Multi-step QWizard onboarding pages
-├── tests/                # Pytest unit & integration test suites (362 tests)
+├── assets/               # Production assets (SecureVault.ico)
+├── packaging/            # Packaging specifications (SecureVault.spec, SecureVault.iss)
+├── tests/                # Pytest unit & integration test suites (378 tests)
+├── scripts/              # Automated verification harnesses
 ├── docs/                 # Architectural, security, and design specifications
 ├── main.py               # Application entry point (GUI launch + headless flags)
 ├── requirements.txt      # Runtime dependencies (PySide6, argon2-cffi, cryptography)
@@ -54,15 +57,16 @@ SecureVault/
   - `M8 — Settings + Theme` (Complete / Manually Verified)
   - `M10 — Clipboard Security` (Complete / Manually Verified)
   - `M11 — Security Hardening` (Complete / 362 Tests Passing)
+  - `M13 — Windows Packaging & Installer` (Complete / 378 Tests Passing / Standalone & Installer Verified)
 - **Note on M9**:
   - `M9 — Password Generator` was permanently removed from the roadmap by user instruction.
 - **Next Milestone**:
-  - `M12 — Packaging & Distribution`
-- **Location of M11 Hardening Implementation**:
-  - `app/crypto/kdf.py`: Transient master password buffer zeroing (`zero_buffer(password_buf)`) and mutable KEK `as_bytearray=True` support.
-  - `app/services/vault_service.py`: Deterministic KEK memory zeroing via `bytearray` and `finally: zero_buffer()`, atomic in-memory state updates in `save_vault()`, and constant-time password reuse detection via `hmac.compare_digest`.
-  - `app/core/exceptions.py`: `PasswordReuseError` inheriting from `InvalidPasswordInputError`.
-  - `tests/test_m11_security_hardening.py`: 9 dedicated security regression tests verifying KEK zeroing, password buffer zeroing, rollback on save failure, and constant-time comparison.
+  - `M14 — Final Security Review & Open Source Release`
+- **Location of M13 Packaging Implementation**:
+  - `packaging/SecureVault.spec`: Windowed onedir PyInstaller spec embedding `assets/SecureVault.ico` and isolating runtime binaries.
+  - `packaging/SecureVault.iss`: Inno Setup 6 installer script installing to `{autopf}\SecureVault` and strictly preserving `%LOCALAPPDATA%\SecureVault`.
+  - `scripts/verify_m13_packaging.py`: Automated standalone executable verification harness.
+  - `scripts/verify_m13_installer.py`: Automated installer, uninstaller, and user data retention verification harness.
 
 ---
 

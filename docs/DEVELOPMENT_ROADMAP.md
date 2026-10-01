@@ -146,13 +146,16 @@ Each milestone is discrete, testable, and gated by defined completion criteria.
   - Continuous Integration (CI) configuration for automated test runs.
 - **Dependencies**: M11.
 
-### M13 — Windows Packaging
-- **Objective**: Produce a standalone, reproducible Windows binary package.
+### M13 — Windows Packaging (Completed)
+- **Objective**: Produce a standalone, reproducible Windows binary package and installer.
 - **Key Deliverables**:
-  - PyInstaller configuration generating a standalone executable or clean directory bundle.
-  - Application manifest with proper icons and Windows metadata.
-  - Installer setup script (e.g. Inno Setup) targeting `%LOCALAPPDATA%`.
-- **Dependencies**: M12.
+  - `packaging/SecureVault.spec`: Windowed onedir PyInstaller spec bundling `assets/SecureVault.ico` and excluding dev/test infrastructure.
+  - `dist/SecureVault/SecureVault.exe`: Standalone 2.06 MB executable running without Python or virtualenv.
+  - `packaging/SecureVault.iss`: Inno Setup 6 installer script generating `dist_installer/SecureVault-Setup-0.1.0.exe` (34.9 MB).
+  - Explicit user data separation: application binaries install to `{autopf}\SecureVault`, while encrypted vault data lives strictly in `%LOCALAPPDATA%\SecureVault`.
+  - Guaranteed uninstall data survival: verified that `%LOCALAPPDATA%\SecureVault` is strictly preserved upon application uninstall, and reopened upon reinstall.
+  - Automated verification harnesses in `scripts/verify_m13_packaging.py` and `scripts/verify_m13_installer.py`.
+- **Dependencies**: M11.
 
 ### M14 — Final Security Review + Open Source Release
 - **Objective**: Final pre-release audit, licensing, and documentation polish.

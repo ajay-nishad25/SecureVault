@@ -6,9 +6,10 @@
 
 ## Current Status
 
-- **Current Milestone**: `M4 — Cryptographic Vault` (Complete / Ready for Review)
+- **Current Milestone**: `M13 — Windows Packaging` (Complete / Verified)
 - **Active Version**: `0.1.0`
-- **Application State**: The multi-step First-Run Setup Wizard, input validation rules, Argon2id Master Key Derivation, 134-byte fixed binary envelope (`vault.svault`), AES-256-GCM DEK wrapping, authenticated payload encryption, atomic disk replacement, and non-blocking desktop unlock/lock transitions are fully implemented and verified. Credential CRUD and management UI remain scheduled for Milestone M5.
+- **Application State**: Fully realized production desktop application. Includes First-Run Setup Wizard, Argon2id authentication, 134-byte fixed binary envelope (`vault.svault`), AES-256-GCM DEK wrapping, encrypted credential CRUD, live search, 2-stage session auto-lock, settings and light/dark theme switching, safe clipboard watchdog with auto-clear, deterministic ephemeral memory wiping, and standalone Windows executable (`SecureVault.exe`) and Inno Setup installer (`SecureVault-Setup-0.1.0.exe`).
+- **Data Isolation**: Application installation resides under `C:\Program Files\SecureVault\` (or custom dir), while all encrypted user data strictly resides under `%LOCALAPPDATA%\SecureVault\` and survives application uninstallation.
 
 ---
 
@@ -17,7 +18,8 @@
 - **Language**: Python 3.11+ (Tested on Python 3.11.4)
 - **GUI Toolkit**: PySide6 (Qt 6 for Python)
 - **Cryptographic Libraries**: `argon2-cffi` (Argon2id KDF), `cryptography` (AES-256-GCM AEAD, DEK wrapping, payload encryption), standard `secrets` CSPRNG
-- **Test Runner**: `pytest` (152 passing tests)
+- **Packaging Tools**: PyInstaller 6.12.0+, Inno Setup 6
+- **Test Runner**: `pytest` (378 passing tests)
 - **Target Platform**: Windows 10/11 (with cross-platform architecture targeting Linux in post-v1)
 
 ---
@@ -41,10 +43,10 @@ python -m venv .venv
 
 ### 3. Install Dependencies
 ```powershell
-# Install runtime dependencies (PySide6)
+# Install runtime dependencies (PySide6, argon2-cffi, cryptography)
 pip install -r requirements.txt
 
-# Or install all development and testing dependencies (PySide6 + pytest)
+# Or install all development and testing dependencies (including pytest)
 pip install -r requirements-dev.txt
 ```
 
@@ -66,12 +68,34 @@ python main.py --version
 
 ### 5. Run the Test Suite
 ```powershell
-# Run all 152 unit and GUI integration tests
+# Run all 378 unit, integration, and UI tests
 pytest
 
 # Run tests with verbose output
 pytest -v
 ```
+
+---
+
+## Production Packaging & Installer
+
+SecureVault produces a standalone Windows application and standard installer.
+
+### Build Standalone Executable (PyInstaller)
+```powershell
+# Build standalone directory bundle (dist/SecureVault/SecureVault.exe)
+pyinstaller packaging/SecureVault.spec --noconfirm --clean
+```
+The resulting executable is located at `dist/SecureVault/SecureVault.exe`. It runs without Python or virtual environment installed, displays the native `SecureVault.ico` icon, and opens no console window.
+
+### Build Windows Installer (Inno Setup)
+```powershell
+# Compile installer with Inno Setup Compiler (ISCC)
+iscc packaging/SecureVault.iss
+```
+The resulting installer is generated at `dist_installer/SecureVault-Setup-0.1.0.exe`.
+
+**User Data Safety Guarantee**: The installer installs the application to `{autopf}\SecureVault` and creates shortcuts with the custom icon. During uninstallation, user vault data in `%LOCALAPPDATA%\SecureVault` is strictly preserved and never deleted.
 
 ---
 
@@ -82,39 +106,44 @@ SecureVault/
 ├── app/
 │   ├── __init__.py       # Central version definition (__version__ = "0.1.0")
 │   ├── core/             # AppConfig, Safe Logging, Domain Exceptions, Validation
-│   ├── crypto/           # Cryptographic primitives boundary (M3/M4)
-│   ├── storage/          # Binary envelope & atomic file persistence boundary (M4)
-│   ├── services/         # InitializationService, Clipboard watchdog (M10), Auto-lock (M7)
-│   ├── models/           # CredentialItem & VaultPayload domain models (M5)
-│   └── ui/               # ApplicationController, LockedView, SetupWizard
+│   ├── crypto/           # Argon2id KDF & AES-256-GCM AEAD encryption boundary
+│   ├── storage/          # 134-byte binary envelope & atomic file persistence
+│   ├── services/         # VaultService, Auth, CredentialService, Session, Settings, Clipboard
+│   ├── models/           # Credential & VaultPayload domain models
+│   └── ui/               # ApplicationController, LockedView, UnlockedView, SetupWizard, ThemeManager
 │       └── setup/        # Multi-step QWizard onboarding pages
-├── tests/                # Pytest unit & integration test suites (79 tests)
+├── assets/               # Production assets (SecureVault.ico)
+├── packaging/            # PyInstaller spec and Inno Setup installer scripts
+│   ├── SecureVault.spec  # PyInstaller onedir windowed configuration
+│   └── SecureVault.iss   # Inno Setup 6 installer script
+├── tests/                # Pytest unit & integration test suites (378 tests)
+├── scripts/              # Verification test harnesses
 ├── docs/                 # Architectural, security, and design specifications
 ├── main.py               # Application entry point (GUI launch + headless flags)
-├── requirements.txt      # Runtime dependencies (PySide6)
-├── requirements-dev.txt  # Dev/test dependencies (pytest)
+├── requirements.txt      # Runtime dependencies
+├── requirements-dev.txt  # Dev/test dependencies
 ├── pyproject.toml        # Package metadata & pytest configuration
-└── README.md             # Developer setup, principles, and roadmap
+└── README.md             # Developer setup, principles, and packaging instructions
 ```
 
 ---
 
 ## Documentation Index
 
-Comprehensive project specifications are maintained in the [`docs/`](file:///c:/Users/Ajay%20Nishad/Documents/SecureVault/docs/) directory:
+Comprehensive project specifications are maintained in the [`docs/`](docs/) directory:
 
-- [AI Context & Handoff Guide](file:///c:/Users/Ajay%20Nishad/Documents/SecureVault/docs/AI_CONTEXT.md)
-- [Current Project State](file:///c:/Users/Ajay%20Nishad/Documents/SecureVault/docs/CURRENT_STATE.md)
-- [Project Overview](file:///c:/Users/Ajay%20Nishad/Documents/SecureVault/docs/PROJECT_OVERVIEW.md)
-- [System Architecture](file:///c:/Users/Ajay%20Nishad/Documents/SecureVault/docs/ARCHITECTURE.md)
-- [Security Model](file:///c:/Users/Ajay%20Nishad/Documents/SecureVault/docs/SECURITY_MODEL.md)
-- [Cryptographic Architecture](file:///c:/Users/Ajay%20Nishad/Documents/SecureVault/docs/CRYPTOGRAPHY.md)
-- [Vault Data Format Specification](file:///c:/Users/Ajay%20Nishad/Documents/SecureVault/docs/DATA_FORMAT.md)
-- [UI/UX Design Specification](file:///c:/Users/Ajay%20Nishad/Documents/SecureVault/docs/UI_DESIGN.md)
-- [Threat Model](file:///c:/Users/Ajay%20Nishad/Documents/SecureVault/docs/THREAT_MODEL.md)
-- [Testing Strategy & QA](file:///c:/Users/Ajay%20Nishad/Documents/SecureVault/docs/TESTING.md)
-- [Development Roadmap](file:///c:/Users/Ajay%20Nishad/Documents/SecureVault/docs/DEVELOPMENT_ROADMAP.md)
-- [Architecture Decision Records (ADRs)](file:///c:/Users/Ajay%20Nishad/Documents/SecureVault/docs/DECISIONS.md)
+- [AI Context & Handoff Guide](docs/AI_CONTEXT.md)
+- [Current Project State](docs/CURRENT_STATE.md)
+- [Project Overview](docs/PROJECT_OVERVIEW.md)
+- [System Architecture](docs/ARCHITECTURE.md)
+- [Security Model](docs/SECURITY_MODEL.md)
+- [Cryptographic Architecture](docs/CRYPTOGRAPHY.md)
+- [Vault Data Format Specification](docs/DATA_FORMAT.md)
+- [UI/UX Design Specification](docs/UI_DESIGN.md)
+- [Threat Model](docs/THREAT_MODEL.md)
+- [Testing Strategy & QA](docs/TESTING.md)
+- [Development Roadmap](docs/DEVELOPMENT_ROADMAP.md)
+- [Architecture Decision Records (ADRs)](docs/DECISIONS.md)
 
 ---
 
