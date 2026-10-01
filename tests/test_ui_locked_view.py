@@ -398,3 +398,26 @@ def test_unlocked_view_close_event_cleans_up_session_and_clipboard(
     assert clipboard_svc.has_ownership() is False
     view.close()
 
+
+def test_locked_view_password_input_width_and_horizontal_centering(
+    qapp: QApplication, isolated_init_service: InitializationService
+) -> None:
+    """Verify password input is 500px wide and centered horizontally at 1100x780."""
+    isolated_init_service.initialize("test_user")
+    view = LockedView(init_service=isolated_init_service)
+    view.resize(1100, 780)
+    view.show()
+    qapp.processEvents()
+
+    assert view.password_input.width() == 500
+
+    # Verify horizontal centering: distance from left and right edges of window
+    geom = view.password_input.geometry()
+    left_dist = geom.left()
+    right_dist = view.width() - geom.right() - 1
+
+    assert left_dist == right_dist
+    assert left_dist == 300
+    view.close()
+
+

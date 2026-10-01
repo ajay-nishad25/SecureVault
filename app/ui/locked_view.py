@@ -15,7 +15,6 @@ from dataclasses import dataclass
 from PySide6.QtCore import QThread, Qt, Signal
 from PySide6.QtGui import QCloseEvent, QShowEvent
 from PySide6.QtWidgets import (
-    QFormLayout,
     QLabel,
     QLineEdit,
     QVBoxLayout,
@@ -152,10 +151,9 @@ class LockedView(QWidget):
         user_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(user_info)
 
-        # Master Password Input Form
-        form_layout = QFormLayout()
-
+        # Master Password Input
         self.password_input = QLineEdit()
+        self.password_input.setFixedWidth(500)
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.password_input.setPlaceholderText(
             "Enter master password to unlock"
@@ -163,13 +161,10 @@ class LockedView(QWidget):
         self.password_input.returnPressed.connect(
             self._on_unlock_clicked
         )
-
-        form_layout.addRow(
-            "",
-            self.password_input,
+        layout.addWidget(
+            self.password_input, alignment=Qt.AlignmentFlag.AlignCenter
         )
 
-        layout.addLayout(form_layout)
 
         # Status / Feedback label
         self.status_label = QLabel("")
