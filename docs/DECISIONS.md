@@ -189,4 +189,34 @@ Each record details the context, decision, and consequences.
   - *Positive*: Single cryptographic lock mechanism avoids duplicate security maintenance.
   - *Trade-off*: Event filter must be properly uninstalled on lock or view teardown to avoid Qt use-after-free conditions.
 
+---
 
+## ADR-016: Non-Sensitive Preferences Architecture, Centralized Dynamic Theming, and Cryptographic Master Password Rotation
+- **Status**: Accepted (Milestone M8)
+- **Context**: Milestone M8 completes preferences infrastructure, dynamic theme switching (Dark/Light), auto-lock duration customization (2, 5, 10, 15 minutes), and master password rotation. The system must strictly enforce that settings.json never stores secrets, auto-lock grace periods remain system-defined, theme changes take effect immediately without restart, and master password change operates cryptographically by re-wrapping the existing Data Encryption Key (DEK) atomically rather than re-encrypting all stored credentials.
+- **Decision**:
+  1. **Strictly Non-Sensitive Settings (`settings.json`)**:
+     - `AppSettings` contains only `theme` ("dark" | "light") and `auto_lock_timeout` (120, 300, 600, 900 seconds).
+     - Prohibited key list (`PROHIBITED_CONFIG_KEYS`) enforces an uncompromisable boundary: keys like `password`, `hash`, `kek`, `dek`, `salt`, `verifier`, `credentials`, `secret`, `token` raise an immediate `ConfigurationError`.
+     - Atomic disk persistence is guaranteed via `.tmp` file and `os.replace`.
+  2. **System-Defined 15-Second Grace Period**:
+     - The 15-second inactivity grace period (`ACTIVITY_GRACE_SECONDS = 15`) remains strictly hardcoded and is not stored or editable in settings.
+     - Changing the auto-lock setting adjusts only the subsequent countdown duration (2m / 5m / 10m / 15m) and updates the live `SessionManager` in real time.
+  3. **Centralized Dynamic Theme Management (`ThemeManager`)**:
+     - `ThemeManager` manages application-wide styling through curated `DARK_THEME_QSS` and `LIGHT_THEME_QSS` stylesheets applied directly to `QApplication`.
+     - Switching between Dark and Light mode occurs instantly at runtime without application restart.
+     - The saved theme preference is loaded and applied before any top-level window is rendered to prevent visual flash.
+  4. **Cryptographic Master Password Rotation via DEK Re-Wrapping**:
+     - When changing the master password, the user authenticates with their current master password.
+     - The existing DEK is unwrapped in memory; a fresh 16-byte random salt is generated.
+     - A new KEK is derived from the new password using Argon2id with existing production parameters.
+     - The SAME existing DEK is re-wrapped with AES-256-GCM under the new KEK with a fresh 12-byte CSPRNG nonce and updated `AAD_DEK`.
+     - The existing encrypted vault payload ciphertext, payload nonce, payload tag, and vault ID remain unchanged.
+     - The new header is written atomically with the existing payload ciphertext via temporary file and replace.
+     - Temporary KEK and DEK buffers are immediately zeroed using `zero_buffer`.
+     - Upon completion, the vault session is immediately locked and the user is returned to `LockedView` where only the new password will unlock the vault.
+- **Consequences**:
+  - *Positive*: Zero risk of sensitive credential data corruption or plaintext leakage during password rotation.
+  - *Positive*: Re-wrapping the DEK is instantaneous (constant time O(1)), regardless of vault size or credential count.
+  - *Positive*: Seamless runtime theme switching with zero widget-scattered styling logic.
+  - *Positive*: Settings persistence is completely safe and auditable.

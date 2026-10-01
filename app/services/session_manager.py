@@ -164,6 +164,34 @@ class SessionManager(QObject):
         """Return the countdown duration in seconds."""
         return self._countdown_seconds
 
+    def set_countdown_seconds(self, seconds: int) -> None:
+        """Update countdown duration at runtime (e.g. 120, 300, 600, 900 seconds).
+
+        Preserves the system-defined grace period (ACTIVITY_GRACE_SECONDS).
+        If currently counting down, updates the remaining duration safely.
+        """
+        if not isinstance(seconds, int) or seconds <= 0:
+            raise ValueError(
+                f"Invalid auto-lock timeout: {seconds}. Must be a positive integer."
+            )
+        old_seconds = self._countdown_seconds
+        self._countdown_seconds = seconds
+        if self._state == SessionInactivityState.COUNTDOWN:
+            diff = seconds - old_seconds
+            self._remaining_seconds = max(1, self._remaining_seconds + diff)
+            self.countdown_updated.emit(
+                self._remaining_seconds,
+                self.format_time(self._remaining_seconds),
+            )
+        elif self._state == SessionInactivityState.GRACE_PERIOD:
+            self._remaining_seconds = seconds
+            self.countdown_updated.emit(
+                self._remaining_seconds,
+                self.format_time(self._remaining_seconds),
+            )
+        else:
+            self._remaining_seconds = seconds
+
     @staticmethod
     def format_time(seconds: int) -> str:
         """Format seconds into 'Auto-lock: MM:SS'."""

@@ -99,20 +99,23 @@ Each milestone is discrete, testable, and gated by defined completion criteria.
   - Manual verification completed across all test steps A through P.
 - **Dependencies**: M6.
 
-### M8 — Settings + Theme (Next)
-- **Objective**: Implement application preferences, persistent configuration, and UI theming.
+### M8 — Settings + Theme (Completed)
+- **Objective**: Implement application preferences, persistent configuration, UI theming, and master password rotation.
 - **Key Deliverables**:
-  - `SettingsManager` reading/writing non-sensitive JSON in `%LOCALAPPDATA%\SecureVault\settings.json`.
-  - Strict enforcement of plaintext boundaries (forbidden to store keys, passwords, or vault secrets).
-  - Configurable auto-lock timeout (1–60 mins) and clipboard timeout (10–120 secs).
-  - Modern Dark and Light stylesheet themes (QSS).
+  - `SettingsService` reading/writing non-sensitive JSON in `%LOCALAPPDATA%\SecureVault\settings.json`.
+  - Strict enforcement of plaintext boundaries (`PROHIBITED_CONFIG_KEYS`: forbidden to store keys, passwords, hashes, tokens, or credentials).
+  - Centralized `ThemeManager` with runtime switching between Dark and Light QSS themes without restart.
+  - Configurable auto-lock timeout (2, 5, 10, 15 minutes) with live `SessionManager` update; system-defined 15-second grace period preserved.
+  - "Change Master Password" workflow in Settings → Security: Argon2id KEK derivation, fresh salt, atomic re-wrapping of the active DEK (leaving payload untouched), auto-lock on completion.
+  - Modal `SettingsDialog` with General and Security tabs.
+  - 329 passing automated tests and automated verification script.
 - **Dependencies**: M7.
 
-### M9 — Password Management
-- **Objective**: Build the cryptographic password generator and master password change workflows.
+### M9 — Password Generator (Next)
+- **Objective**: Build the cryptographically secure password generator.
 - **Key Deliverables**:
-  - Cryptographically secure password generator using `secrets` with configurable length and character sets.
-  - "Change Master Password" modal with KEK re-wrapping of the active DEK (leaving payload untouched).
+  - Cryptographically secure password generator using `secrets` with configurable length and character sets (uppercase, lowercase, numbers, symbols).
+  - Password generation modal/dialog accessible during credential creation and editing.
   - Visual password strength estimator.
 - **Dependencies**: M8.
 

@@ -9,6 +9,10 @@ This package encapsulates all desktop graphical interface components:
 """
 
 from app.ui.locked_view import LockedView
+from app.ui.settings_dialog import SettingsDialog
 from app.ui.setup.wizard import SetupWizard
+from app.ui.theme import ThemeManager
+from app.ui.unlocked_view import UnlockedView
 
-__all__ = ["SetupWizard", "LockedView"]
+__all__ = ["SetupWizard", "LockedView", "UnlockedView", "SettingsDialog", "ThemeManager"]
+

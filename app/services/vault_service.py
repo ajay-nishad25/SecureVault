@@ -44,6 +44,7 @@ from app.crypto.encryption import (
     zero_buffer,
 )
 from app.crypto.kdf import KDFParameters, derive_kek, generate_salt
+from app.core.validation import MIN_PASSWORD_LENGTH, validate_master_password
 from app.storage.vault_file import read_vault_file, vault_exists, write_vault_file
 from app.storage.vault_format import (
     CURRENT_FORMAT_VERSION,
@@ -431,3 +432,155 @@ class VaultService:
             self._active_vault.lock()
             self._active_vault = None
             logger.info("Active vault session cleared from VaultService.")
+
+    def change_master_password(
+        self,
+        current_password: str | bytes,
+        new_password: str | bytes,
+        confirm_password: str | bytes | None = None,
+        vault_path: Path | None = None,
+    ) -> None:
+        """Securely rotate the master password by re-wrapping the existing DEK.
+
+        Workflow:
+          1. Validate current and new password inputs.
+          2. Reject if new password equals current password.
+          3. Read existing binary header and encrypted payload from disk.
+          4. Derive KEK from current password and authenticate against header by unwrapping DEK.
+             (Raises AuthenticationError if current password is incorrect; vault is untouched).
+          5. Generate a fresh 16-byte random salt.
+          6. Derive new KEK from new password and fresh salt using existing Argon2id parameters.
+          7. Re-wrap the SAME existing DEK under the new KEK with a fresh nonce and AAD_DEK.
+          8. Assemble new header preserving original payload length, nonce, and tag.
+          9. Atomically write updated header + original payload ciphertext to disk.
+          10. Zero intermediate key buffers and update active vault header in memory.
+
+        Args:
+            current_password: The user's current master password.
+            new_password: The user's new master password.
+            confirm_password: Optional confirmation password to validate against new_password.
+            vault_path: Optional custom vault file path.
+
+        Raises:
+            InvalidPasswordInputError: If passwords are empty, below minimum length, mismatched, or identical.
+            AuthenticationError: If current master password fails authentication.
+            CorruptedVaultError: If vault file or header is invalid.
+            StorageError: If atomic file write fails.
+        """
+        if not current_password:
+            raise InvalidPasswordInputError("Current master password cannot be empty.")
+        if not new_password:
+            raise InvalidPasswordInputError("Master password cannot be empty.")
+
+        cur_pwd_str = (
+            current_password.decode("utf-8")
+            if isinstance(current_password, bytes)
+            else current_password
+        )
+        new_pwd_str = (
+            new_password.decode("utf-8")
+            if isinstance(new_password, bytes)
+            else new_password
+        )
+
+        if confirm_password is not None:
+            conf_pwd_str = (
+                confirm_password.decode("utf-8")
+                if isinstance(confirm_password, bytes)
+                else confirm_password
+            )
+            is_valid, err_msg = validate_master_password(new_pwd_str, conf_pwd_str)
+            if not is_valid:
+                raise InvalidPasswordInputError(err_msg)
+        else:
+            if len(new_pwd_str) < MIN_PASSWORD_LENGTH:
+                raise InvalidPasswordInputError(
+                    f"Master password must be at least {MIN_PASSWORD_LENGTH} characters."
+                )
+
+        if cur_pwd_str == new_pwd_str:
+            raise InvalidPasswordInputError(
+                "New master password cannot be the same as the current password."
+            )
+
+        target_path = vault_path or self._config.vault_path
+        header_bytes, payload_ciphertext = read_vault_file(target_path)
+
+        header = VaultHeader.parse(header_bytes)
+        kdf_params = header.to_kdf_parameters()
+
+        # Derive KEK from current password
+        cur_kek = derive_kek(cur_pwd_str, header.salt, kdf_params)
+        aad_dek = extract_aad_dek_from_bytes(header_bytes)
+
+        # Authenticate current password by unwrapping existing DEK
+        try:
+            dek = unwrap_dek(
+                kek=cur_kek,
+                nonce=header.dek_nonce,
+                wrapped_dek=header.wrapped_dek,
+                tag=header.dek_tag,
+                aad=aad_dek,
+            )
+        except DecryptionError as err:
+            logger.warning("Master password change failed: incorrect current password.")
+            raise AuthenticationError("Incorrect current master password.") from err
+        finally:
+            if isinstance(cur_kek, (bytearray, memoryview)):
+                zero_buffer(cur_kek)
+            cur_kek = b"\x00" * len(cur_kek)
+
+        dek_buffer = bytearray(dek)
+
+        # Generate fresh 16-byte salt for the new master password
+        new_salt = generate_salt(len(header.salt))
+
+        # Derive new KEK from new master password
+        new_kek = derive_kek(new_pwd_str, new_salt, kdf_params)
+
+        # Compute new AAD_DEK with the new salt
+        new_public_header_prefix = struct.pack(
+            ">8s H B I I H B 16s",
+            MAGIC,
+            CURRENT_FORMAT_VERSION,
+            KDF_ID_ARGON2ID,
+            header.kdf_memory,
+            header.kdf_time,
+            header.kdf_parallel,
+            len(new_salt),
+            new_salt,
+        )
+        new_aad_dek = new_public_header_prefix
+
+        # Re-wrap the SAME DEK with the new KEK
+        new_dek_nonce, new_wrapped_dek, new_dek_tag = wrap_dek(
+            new_kek,
+            bytes(dek_buffer),
+            new_aad_dek,
+        )
+
+        # Zero temporary key buffers
+        if isinstance(new_kek, (bytearray, memoryview)):
+            zero_buffer(new_kek)
+        new_kek = b"\x00" * len(new_kek)
+        zero_buffer(dek_buffer)
+
+        # Assemble new VaultHeader preserving original payload metadata
+        new_header = replace(
+            header,
+            salt=new_salt,
+            dek_nonce=new_dek_nonce,
+            wrapped_dek=new_wrapped_dek,
+            dek_tag=new_dek_tag,
+        )
+        new_header_bytes = new_header.serialize()
+
+        # Atomically write updated header + unchanged payload ciphertext to disk
+        write_vault_file(target_path, new_header_bytes, payload_ciphertext)
+
+        # Update in-memory active vault header if present
+        if self._active_vault and not self._active_vault.is_locked:
+            self._active_vault.header = new_header
+
+        logger.info("Master password successfully changed; DEK re-wrapped and atomically persisted.")
+

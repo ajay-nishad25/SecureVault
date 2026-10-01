@@ -222,11 +222,42 @@ SecureVault's testing architecture enforces high-reliability standards appropria
     - Card View/Edit/Delete interactions reset session.
     - Open modal dialogs (`AddCredentialDialog`, `EditCredentialDialog`, `ViewCredentialDialog`) dismissed automatically on auto-lock timeout.
 
+### 2.15 Settings, Theming, & Master Password Rotation Tests (M8)
+- `tests/test_settings_service.py` (26 tests):
+  - **Schema & Defaults**: Verifies default `theme = "dark"` and `auto_lock_timeout = 120`.
+  - **Validation**: Enforces theme whitelist (`"dark"`, `"light"`) and auto-lock timeout whitelist (`120`, `300`, `600`, `900`).
+  - **Fail-Secure Rejection**: Invalid values raise `InvalidSettingValueError` and fallback safely.
+  - **Sensitive Key Protection**: Explicitly asserts rejection of sensitive keys (`password`, `master_password`, `kek`, `dek`, `secret`).
+  - **Atomic Persistence**: Verifies atomic write via temporary file replacement and corruption recovery.
+- `tests/test_theme.py` (7 tests):
+  - **Centralized Management**: Verifies `ThemeManager.get_theme()`, `apply_theme()`, `switch_theme()`.
+  - **Dynamic Switching**: Tests runtime switching `Dark -> Light -> Dark` without restart.
+  - **Persistence & Restoration**: Verifies theme changes are saved to `SettingsService` and restored on application startup before window display.
+  - **Signal Emission**: Verifies `theme_changed` Qt signal with new theme name.
+- `tests/test_auto_lock_configuration.py` (7 tests):
+  - **Timeout Values**: Verifies all 4 options (`120s`, `300s`, `600s`, `900s`).
+  - **Live Configuration**: Verifies changing setting while vault is unlocked updates `SessionManager.set_countdown_seconds()` immediately.
+  - **15-Second Grace Invariant**: Verifies `ACTIVITY_GRACE_SECONDS = 15` is preserved across all timeout configurations.
+  - **State Machine Integrity**: Confirms typing/clicking resets timers, countdown decrements from newly configured value, and auto-lock fires at `00:00`.
+- `tests/test_master_password_change.py` (8 tests):
+  - **Validation Guards**: Verifies rejection of empty current password, wrong current password, empty new password, new password under 8 characters, confirmation mismatch, and identical new/current password.
+  - **Cryptographic Re-Wrapping**: Verifies unwrap of existing DEK under current KEK, derivation of new KEK from new password with fresh 16-byte salt, re-wrapping of the same DEK, and header update.
+  - **Payload & Credential Preservation**: Verifies existing ciphertext and credentials remain byte-for-byte intact and decryptable under the new password.
+  - **Vault ID Preservation**: Verifies `vault_id` is retained.
+  - **Old Password Invalidation**: Verifies old master password fails to unlock the vault.
+  - **Atomicity & Fail-Safe**: Verifies failed password change does not alter or corrupt the vault file.
+- `tests/test_ui_settings_dialog.py` (11 tests):
+  - **Modal Shell & Tabs**: Verifies General and Security tabs, sidebar navigation, modal styling.
+  - **Appearance UI**: Verifies Dark and Light radio controls and live theme switching.
+  - **Auto-Lock UI**: Verifies 2, 5, 10, 15 min radio controls and live `SessionManager` update.
+  - **Master Password Form**: Verifies masked password inputs, advisory note visibility, field validation errors, success dialog, and emission of `password_changed` signal.
+  - **Lock Transition**: Verifies `ApplicationController` locks vault and transitions to `LockedView` on successful master password change.
+
 ---
 
 ## 3. Future Test Suites (Scheduled per Roadmap)
 
-- **M8 (Settings & Theming)**: Settings persistence, configurable auto-lock duration, dark/light theme switching.
+- **M9 (Password Generator)**: Length, character sets, entropy calculation, UI dialog.
 - **M10 (Clipboard Security)**: 30-second clipboard watchdog clearing.
 
 ---
@@ -238,4 +269,4 @@ All tests are executed using pytest:
 # Run full test suite
 .\.venv\Scripts\python.exe -m pytest -v
 ```
-*Current test status: 268 passed, 0 failed.*
+*Current test status: 329 passed, 0 failed.*

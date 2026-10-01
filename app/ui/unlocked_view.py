@@ -39,7 +39,9 @@ from app.core.logging import get_logger
 from app.models.credential import Credential
 from app.services.credential_service import CredentialService
 from app.services.session_manager import SessionManager
+from app.services.settings_service import SettingsService
 from app.services.vault_service import DecryptedVault, VaultService
+from app.ui.settings_dialog import SettingsDialog
 
 logger = get_logger("ui.unlocked_view")
 
@@ -154,12 +156,10 @@ class ViewCredentialDialog(QDialog):
 
         self.title_val = QLineEdit(credential.title)
         self.title_val.setReadOnly(True)
-        self.title_val.setStyleSheet("background-color: #161b22; color: #f0f6fc; border: 1px solid #30363d;")
         form.addRow("Title:", self.title_val)
 
         self.username_val = QLineEdit(credential.username)
         self.username_val.setReadOnly(True)
-        self.username_val.setStyleSheet("background-color: #161b22; color: #f0f6fc; border: 1px solid #30363d;")
         form.addRow("Username:", self.username_val)
 
         pwd_layout = QHBoxLayout()
@@ -167,7 +167,6 @@ class ViewCredentialDialog(QDialog):
         self.password_val = QLineEdit(credential.password)
         self.password_val.setEchoMode(QLineEdit.EchoMode.Password)
         self.password_val.setReadOnly(True)
-        self.password_val.setStyleSheet("background-color: #161b22; color: #f0f6fc; border: 1px solid #30363d;")
         pwd_layout.addWidget(self.password_val)
 
         self.toggle_pwd_btn = QPushButton("Show")
@@ -179,7 +178,6 @@ class ViewCredentialDialog(QDialog):
 
         self.notes_val = QLineEdit(credential.notes)
         self.notes_val.setReadOnly(True)
-        self.notes_val.setStyleSheet("background-color: #161b22; color: #f0f6fc; border: 1px solid #30363d;")
         form.addRow("Notes:", self.notes_val)
 
         layout.addLayout(form)
@@ -354,20 +352,20 @@ class CredentialCardWidget(QWidget):
 
         # Title
         self.title_label = QLabel(title)
-        self.title_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #f0f6fc;")
+        self.title_label.setObjectName("CardTitle")
         self.title_label.setWordWrap(True)
         main_layout.addWidget(self.title_label)
 
         # Username
         self.username_label = QLabel(username)
-        self.username_label.setStyleSheet("font-size: 12px; color: #8b949e;")
+        self.username_label.setObjectName("CardUsername")
         self.username_label.setWordWrap(True)
         main_layout.addWidget(self.username_label)
 
         # Notes (only displayed when present)
         if notes and notes.strip():
             self.notes_label = QLabel(notes.strip())
-            self.notes_label.setStyleSheet("font-size: 11px; color: #768390; font-style: italic;")
+            self.notes_label.setObjectName("CardNotes")
             self.notes_label.setWordWrap(True)
             main_layout.addWidget(self.notes_label)
         else:
@@ -382,26 +380,17 @@ class CredentialCardWidget(QWidget):
         btn_layout.setContentsMargins(0, 0, 0, 0)
 
         self.view_btn = QPushButton("👁 View")
-        self.view_btn.setStyleSheet(
-            "background-color: #21262d; color: #c9d1d9; border: 1px solid #30363d; "
-            "border-radius: 4px; padding: 4px 12px; font-size: 11px; font-weight: 500;"
-        )
+        self.view_btn.setObjectName("CardViewBtn")
         self.view_btn.clicked.connect(self._on_view_clicked)
         btn_layout.addWidget(self.view_btn)
 
         self.edit_btn = QPushButton("✏️ Edit")
-        self.edit_btn.setStyleSheet(
-            "background-color: #1f6feb; color: #ffffff; border: 1px solid #388bfd; "
-            "border-radius: 4px; padding: 4px 12px; font-size: 11px; font-weight: 500;"
-        )
+        self.edit_btn.setObjectName("CardEditBtn")
         self.edit_btn.clicked.connect(self._on_edit_clicked)
         btn_layout.addWidget(self.edit_btn)
 
         self.delete_btn = QPushButton("🗑 Delete")
-        self.delete_btn.setStyleSheet(
-            "background-color: #21262d; color: #f85149; border: 1px solid #da3633; "
-            "border-radius: 4px; padding: 4px 12px; font-size: 11px; font-weight: 500;"
-        )
+        self.delete_btn.setObjectName("DeleteButton")
         self.delete_btn.clicked.connect(self._on_delete_clicked)
         btn_layout.addWidget(self.delete_btn)
 
@@ -409,13 +398,6 @@ class CredentialCardWidget(QWidget):
         main_layout.addLayout(btn_layout)
 
         self.setLayout(main_layout)
-        self.setStyleSheet(
-            "CredentialCardWidget {"
-            "  background-color: #161b22;"
-            "  border: 1px solid #30363d;"
-            "  border-radius: 6px;"
-            "}"
-        )
 
     def _on_view_clicked(self) -> None:
         self.view_clicked.emit(self.cred_id)
@@ -461,6 +443,7 @@ class UnlockedView(QWidget):
         vault_service: VaultService | None = None,
         credential_service: CredentialService | None = None,
         session_manager: SessionManager | None = None,
+        settings_service: SettingsService | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -470,7 +453,18 @@ class UnlockedView(QWidget):
         self._credential_service = credential_service or (
             CredentialService(vault_service) if vault_service else None
         )
-        self._session_manager = session_manager or SessionManager(parent=self)
+        self._settings_service = settings_service or (
+            SettingsService(vault_service.config) if vault_service else SettingsService()
+        )
+
+        if session_manager is not None:
+            self._session_manager = session_manager
+        else:
+            configured_timeout = self._settings_service.get_settings().auto_lock_timeout
+            self._session_manager = SessionManager(
+                countdown_seconds=configured_timeout,
+                parent=self,
+            )
 
         # Wire session manager signals
         self._session_manager.countdown_updated.connect(self._on_countdown_updated)
@@ -492,7 +486,7 @@ class UnlockedView(QWidget):
         header_grid.setContentsMargins(0, 0, 0, 0)
 
         header = QLabel("🔓 SecureVault — Unlocked")
-        header.setStyleSheet("font-size: 20px; font-weight: bold; color: #44bb44;")
+        header.setObjectName("VaultHeaderUnlocked")
         header.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Top-right countdown label (independent overlay, does not affect header centering)
@@ -527,38 +521,14 @@ class UnlockedView(QWidget):
         search_layout.setSpacing(8)
 
         self.search_input = QLineEdit()
+        self.search_input.setObjectName("SearchInput")
         self.search_input.setPlaceholderText("Search credentials...")
         self.search_input.setClearButtonEnabled(True)
-        self.search_input.setStyleSheet(
-            "QLineEdit {"
-            "  background-color: #0d1117;"
-            "  border: 1px solid #30363d;"
-            "  border-radius: 6px;"
-            "  padding: 6px 10px;"
-            "  color: #c9d1d9;"
-            "  font-size: 13px;"
-            "}"
-            "QLineEdit:focus {"
-            "  border-color: #58a6ff;"
-            "}"
-        )
         self.search_input.textChanged.connect(self._on_search_changed)
         search_layout.addWidget(self.search_input, stretch=1)
 
         self.clear_btn = QPushButton("Clear")
-        self.clear_btn.setStyleSheet(
-            "QPushButton {"
-            "  background-color: #21262d;"
-            "  color: #c9d1d9;"
-            "  border: 1px solid #30363d;"
-            "  border-radius: 6px;"
-            "  padding: 6px 14px;"
-            "  font-size: 12px;"
-            "}"
-            "QPushButton:hover {"
-            "  background-color: #30363d;"
-            "}"
-        )
+        self.clear_btn.setObjectName("ClearSearchButton")
         self.clear_btn.clicked.connect(self._on_clear_search)
         search_layout.addWidget(self.clear_btn)
 
@@ -566,19 +536,12 @@ class UnlockedView(QWidget):
 
         # Credential Counter / Section Label
         self.counter_label = QLabel("Stored Credentials: <b>0</b>")
-        self.counter_label.setStyleSheet("font-weight: bold; font-size: 13px; margin-top: 4px; color: #c9d1d9;")
+        self.counter_label.setObjectName("CounterLabel")
         layout.addWidget(self.counter_label)
 
         # Empty state container
         self.empty_state_widget = QWidget()
         self.empty_state_widget.setMinimumHeight(140)
-        self.empty_state_widget.setStyleSheet(
-            "QWidget#EmptyStateContainer {"
-            "  background-color: #0d1117;"
-            "  border: 1px dashed #30363d;"
-            "  border-radius: 6px;"
-            "}"
-        )
         self.empty_state_widget.setObjectName("EmptyStateContainer")
         empty_layout = QVBoxLayout(self.empty_state_widget)
         empty_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -586,30 +549,22 @@ class UnlockedView(QWidget):
         empty_layout.setSpacing(6)
 
         self.empty_state_icon = QLabel("📭")
+        self.empty_state_icon.setObjectName("EmptyStateIcon")
         self.empty_state_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.empty_state_icon.setStyleSheet("font-size: 28px; background: transparent; border: none;")
         empty_layout.addWidget(self.empty_state_icon)
 
         self.empty_state_title = QLabel("No credentials yet.")
+        self.empty_state_title.setObjectName("EmptyStateTitle")
         self.empty_state_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.empty_state_title.setStyleSheet("font-size: 15px; font-weight: bold; color: #8b949e; background: transparent; border: none;")
         empty_layout.addWidget(self.empty_state_title)
 
         self.empty_state_subtitle = QLabel("Add your first credential to get started.")
+        self.empty_state_subtitle.setObjectName("EmptyStateSubtitle")
         self.empty_state_subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.empty_state_subtitle.setStyleSheet("font-size: 13px; color: #6e7681; background: transparent; border: none;")
         empty_layout.addWidget(self.empty_state_subtitle)
 
         self.empty_state_add_btn = QPushButton("➕ Add Credential")
-        self.empty_state_add_btn.setStyleSheet(
-            "QPushButton {"
-            "  background-color: #238636; color: #ffffff; border: 1px solid #2ea043; "
-            "  border-radius: 6px; padding: 6px 16px; font-weight: bold; margin-top: 6px;"
-            "}"
-            "QPushButton:hover {"
-            "  background-color: #2ea043;"
-            "}"
-        )
+        self.empty_state_add_btn.setObjectName("PrimaryButton")
         self.empty_state_add_btn.clicked.connect(self._on_add_clicked)
         empty_layout.addWidget(self.empty_state_add_btn, alignment=Qt.AlignmentFlag.AlignCenter)
 
@@ -617,31 +572,12 @@ class UnlockedView(QWidget):
 
         # Credential List Section
         self.credential_list = QListWidget()
+        self.credential_list.setObjectName("CredentialList")
         self.credential_list.setSpacing(8)
         self.credential_list.setItemDelegate(CardItemDelegate(self.credential_list))
         self.credential_list.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.credential_list.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.credential_list.verticalScrollBar().setSingleStep(16)
-        self.credential_list.setStyleSheet(
-            "QListWidget {"
-            "  background-color: #0d1117;"
-            "  border: 1px solid #30363d;"
-            "  border-radius: 6px;"
-            "  padding: 6px;"
-            "}"
-            "QListWidget::item {"
-            "  background: transparent;"
-            "  border: none;"
-            "  padding: 0px;"
-            "  margin: 0px;"
-            "}"
-            "QListWidget::item:selected {"
-            "  background: transparent;"
-            "}"
-            "QListWidget::item:hover {"
-            "  background: transparent;"
-            "}"
-        )
         self.credential_list.itemDoubleClicked.connect(self._on_item_double_clicked)
         layout.addWidget(self.credential_list, stretch=1)
 
@@ -657,6 +593,12 @@ class UnlockedView(QWidget):
         self.add_btn.setStyleSheet("padding: 6px 14px; font-weight: bold;")
         self.add_btn.clicked.connect(self._on_add_clicked)
         btn_layout.addWidget(self.add_btn)
+
+        self.settings_btn = QPushButton("⚙ Settings")
+        self.settings_btn.setObjectName("SettingsButton")
+        self.settings_btn.setStyleSheet("padding: 6px 14px;")
+        self.settings_btn.clicked.connect(self._on_settings_clicked)
+        btn_layout.addWidget(self.settings_btn)
 
         self.lock_btn = QPushButton("🔒 Lock Vault")
         self.lock_btn.setStyleSheet("font-weight: bold; padding: 6px 16px;")
@@ -901,6 +843,28 @@ class UnlockedView(QWidget):
     def session_manager(self) -> SessionManager:
         """Return the active session manager."""
         return self._session_manager
+
+    @property
+    def settings_service(self) -> SettingsService:
+        """Return the active settings service."""
+        return self._settings_service
+
+    def _on_settings_clicked(self) -> None:
+        """Open the modal Settings dialog."""
+        logger.info("Opening Settings dialog.")
+        dialog = SettingsDialog(
+            settings_service=self._settings_service,
+            session_manager=self._session_manager,
+            vault_service=self._vault_service,
+            parent=self,
+        )
+        dialog.password_changed.connect(self._on_master_password_changed)
+        dialog.exec()
+
+    def _on_master_password_changed(self) -> None:
+        """Lock vault and return to login view after master password change."""
+        logger.info("Master password was changed. Locking vault session.")
+        self._on_lock_clicked()
 
     def _on_countdown_updated(self, remaining_seconds: int, text: str) -> None:
         """Update the countdown label text."""

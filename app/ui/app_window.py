@@ -16,6 +16,7 @@ from app.core.logging import get_logger
 from app.services.authentication import AuthenticationService
 from app.services.initialization import InitializationService
 from app.services.session_manager import SessionManager
+from app.services.settings_service import SettingsService
 from app.services.vault_service import DecryptedVault, VaultService
 from app.ui.locked_view import LockedView
 from app.ui.setup.wizard import SetupWizard
@@ -47,12 +48,26 @@ class ApplicationController:
         auth_service: AuthenticationService | None = None,
         vault_service: VaultService | None = None,
         session_manager: SessionManager | None = None,
+        settings_service: SettingsService | None = None,
     ) -> None:
         self.config = config or AppConfig()
         self.init_service = init_service or InitializationService(self.config)
         self.auth_service = auth_service or AuthenticationService()
         self.vault_service = vault_service or VaultService(self.config)
-        self.session_manager = session_manager
+        self.settings_service = settings_service or SettingsService(self.config)
+
+        # Apply saved theme before any window is rendered
+        from app.ui.theme import ThemeManager
+        ThemeManager.instance().apply_theme(self.settings_service.get_settings().theme)
+
+        # Initialize or configure SessionManager with saved auto-lock timeout
+        saved_timeout = self.settings_service.get_settings().auto_lock_timeout
+        if session_manager is not None:
+            self.session_manager = session_manager
+            self.session_manager.set_countdown_seconds(saved_timeout)
+        else:
+            self.session_manager = SessionManager(countdown_seconds=saved_timeout)
+
         self.current_window = None
 
     def start(self) -> int:
@@ -110,6 +125,7 @@ class ApplicationController:
             login_id=login_id,
             vault_service=self.vault_service,
             session_manager=self.session_manager,
+            settings_service=self.settings_service,
         )
         self.current_window = unlocked_view
 

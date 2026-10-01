@@ -18,6 +18,14 @@ from app.services.session_manager import (
     SessionInactivityState,
     SessionManager,
 )
+from app.services.settings_service import (
+    DEFAULT_AUTO_LOCK_TIMEOUT,
+    DEFAULT_THEME,
+    SUPPORTED_AUTO_LOCK_TIMEOUTS,
+    SUPPORTED_THEMES,
+    AppSettings,
+    SettingsService,
+)
 from app.services.vault_service import (
     DecryptedVault,
     VaultService,
@@ -36,4 +44,10 @@ __all__ = [
     "SessionManager",
     "SessionInactivityState",
     "ActivityEventFilter",
+    "SettingsService",
+    "AppSettings",
+    "DEFAULT_THEME",
+    "SUPPORTED_THEMES",
+    "DEFAULT_AUTO_LOCK_TIMEOUT",
+    "SUPPORTED_AUTO_LOCK_TIMEOUTS",
 ]

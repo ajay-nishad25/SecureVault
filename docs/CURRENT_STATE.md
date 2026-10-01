@@ -2,10 +2,10 @@
 
 ## 1. Milestone Tracking
 
-- **Current Milestone**: `M7 — Session Management & Auto-Lock`
-- **Status**: **COMPLETE (Manually Verified)**
+- **Current Milestone**: `M8 — Settings + Theme`
+- **Status**: **COMPLETE** (Both Phase 1 & Phase 2 Verified)
 - **Target Release**: Version 1.0.0 (Windows)
-- **Next Milestone**: `M8 — Settings + Theme`
+- **Next Milestone**: `M9 — Password Generator`
 
 ---
 
@@ -181,32 +181,65 @@
 - **Testing**: 268 automated tests passing across entire suite (29 dedicated M7 tests in `tests/test_session_management.py`).
 - **Manual Verification**: All manual verification steps (A through P) executed and verified.
 
+### Milestone 8 (M8 — Settings + Theme)
+- **Settings Service Architecture (`app/services/settings_service.py`)**:
+  - Implemented `AppSettings` model and `SettingsService`.
+  - Non-sensitive JSON persistence at `%LOCALAPPDATA%\SecureVault\settings.json`.
+  - Atomic writes via `.tmp` file and `os.replace`.
+  - Settings schema:
+    - `"theme"`: `"dark"` | `"light"` (default: `"dark"`).
+    - `"auto_lock_timeout"`: `120` | `300` | `600` | `900` seconds (default: `120`).
+  - Validation with safe defaults fallback for missing or corrupted files.
+  - Strict security boundary: `settings.json` contains zero keys, passwords, hashes, tokens, or credentials (`PROHIBITED_CONFIG_KEYS`).
+  - The 15-second grace period (`ACTIVITY_GRACE_SECONDS = 15`) is strictly system-defined and NOT stored in settings.json.
+- **Centralized Theme Management (`app/ui/theme.py`)**:
+  - Implemented `ThemeManager` singleton providing application-wide `DARK_THEME_QSS` and `LIGHT_THEME_QSS`.
+  - Supports exactly two themes: Dark and Light.
+  - Immediate runtime switching without application restart via `ThemeManager.instance().apply_theme(...)`.
+  - Saved theme is restored upon startup before any window is rendered to prevent visual flash.
+  - Covers all UI areas: Main Vault, Locked View, Setup Wizard, Settings Dialog, Credential Cards, Dialogs, Search, Buttons, and Alerts.
+- **Auto-Lock Timeout Customization**:
+  - Configurable in Settings → Security: exactly four choices (2, 5, 10, 15 minutes).
+  - Live session updates: changing timeout immediately updates active `SessionManager.set_countdown_seconds(...)` without restarting.
+  - Grace period remains system-defined and invariant at 15 seconds.
+  - M7 event detection (typing/clicks/scrolling reset, mouse movement alone does not reset) remains 100% intact.
+- **Cryptographic Master Password Change (`app/services/vault_service.py`, `app/ui/settings_dialog.py`)**:
+  - Form in Settings → Security with masked inputs: Current Password, New Password, Confirm New Password.
+  - Validates current password against header KEK/DEK unwrap before any changes.
+  - Re-wraps the SAME existing DEK under a fresh Argon2id KEK with a new 16-byte CSPRNG salt.
+  - Preserves vault payload ciphertext, payload nonce, payload tag, and `vault_id` intact.
+  - Atomic persistence to disk via temporary file and replace.
+  - Intermediate key buffers zeroed via `zero_buffer`.
+  - Displays required note: *"After successfully changing your master password, SecureVault will lock the vault and return you to the login screen. You must use your new master password to unlock the vault again."*
+  - Automatically locks vault session and transitions to `LockedView` on success; requires new master password to unlock.
+- **Testing**: 329 automated tests passing across full suite (35 new M8 tests covering theme, auto-lock configuration, master password rotation, and settings dialog UI).
+- **Manual Verification**: Automated and manual verification script (`scripts/verify_m8.py`) passed all checks.
+
 ---
 
-## 3. What is Intentionally NOT Implemented in M7
+## 3. What is Intentionally NOT Implemented in M8
 
-In strict adherence to project boundaries:
-- **Configurable Auto-Lock Timeout / Settings UI**: Scheduled for M8.
-- **Theme System (Dark / Light)**: Scheduled for M8.
+In strict adherence to project boundaries and milestone separation:
 - **Password Generator**: Scheduled for M9.
-- **Clipboard Management**: Scheduled for M10.
-- **Password Rotation UI**: Scheduled for M11.
-- **CSV Export / Cloud Sync**: Permanently excluded from SecureVault.
+- **Clipboard Management / Auto-Clear**: Scheduled for M10.
+- **CSV Export / Cloud Sync / Networking**: Permanently excluded from SecureVault.
+- **System Theme / Accent Colors / UI Scaling**: Excluded; exactly Dark and Light supported.
+- **Configurable Grace Period**: Excluded; 15-second grace period is system-defined.
 
 ---
 
 ## 4. Current Task
-M7 Session Management & Auto-Lock COMPLETE and verified. Ready for Git commit and push.
+Milestone M8 (Settings + Theme) COMPLETE, tested, and verified.
 
 ---
 
 ## 5. Next Task
-M8 — Settings + Theme.
+Milestone M9 — Password Generator.
 
 ---
 
 ## 6. Known Issues / Unresolved Items
-- **None**: All M7 specifications, 15s grace, 2m countdown, top-right UI, header alignment, typing/clicking/scrolling reset, mouse movement non-reset, auto-lock re-use, LockedView password masking, and 268/268 tests pass with 100% pass rate.
+- **None**: All M8 requirements, theme switching, auto-lock updates, master password change, atomic persistence, and 329/329 tests pass with 100% pass rate.
 
 ---
 
@@ -216,4 +249,6 @@ M8 — Settings + Theme.
 - **ADR-013**: Decoupled AAD Envelope Architecture for Atomic Key Rotation.
 - **ADR-014**: In-Memory Credential CRUD & Immediate Atomic Vault Re-Encryption.
 - **ADR-015**: Event-Driven Inactivity Monitoring & Two-Stage Auto-Lock Lifecycle.
+- **ADR-016**: Non-Sensitive Preferences Architecture, Centralized Dynamic Theming, and Cryptographic Master Password Rotation.
+
 
