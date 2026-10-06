@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QApplication, QDialog, QWidget
 
 from app.core.config import AppConfig, WINDOW_HEIGHT, WINDOW_WIDTH, get_app_icon_path
 from app.core.logging import get_logger
+from app.core.single_instance import SingleInstanceGuard, bring_window_to_front
 from app.services.authentication import AuthenticationService
 from app.services.clipboard_service import ClipboardService
 from app.services.initialization import InitializationService
@@ -78,6 +79,7 @@ class ApplicationController:
         session_manager: SessionManager | None = None,
         settings_service: SettingsService | None = None,
         clipboard_service: ClipboardService | None = None,
+        single_instance_guard: SingleInstanceGuard | None = None,
     ) -> None:
         self.config = config or AppConfig()
         self.init_service = init_service or InitializationService(self.config)
@@ -85,6 +87,11 @@ class ApplicationController:
         self.vault_service = vault_service or VaultService(self.config)
         self.settings_service = settings_service or SettingsService(self.config)
         self.clipboard_service = clipboard_service or ClipboardService.instance()
+        self.single_instance_guard = single_instance_guard
+
+        # Wire single-instance focus request to bring window forward
+        if self.single_instance_guard is not None:
+            self.single_instance_guard.instance_activated.connect(self.activate_current_window)
 
         # Connect application exit to secure clipboard cleanup
         app = QApplication.instance()
@@ -110,6 +117,11 @@ class ApplicationController:
             self.session_manager = SessionManager(countdown_seconds=saved_timeout)
 
         self.current_window = None
+
+    def activate_current_window(self) -> None:
+        """Bring the current application window to the foreground and restore if minimized."""
+        if self.current_window is not None:
+            bring_window_to_front(self.current_window)
 
     def start(self) -> int:
         """Start the UI workflow.
@@ -199,8 +211,12 @@ def run_gui(
     vault_service: VaultService | None = None,
     session_manager: SessionManager | None = None,
     clipboard_service: ClipboardService | None = None,
+    single_instance_guard: SingleInstanceGuard | None = None,
 ) -> int:
     """Launch the PySide6 desktop GUI application.
+
+    Enforces single-instance execution: if another instance is running,
+    signals it to focus and exits immediately with code 0.
 
     Returns:
         int: Process exit code.
@@ -223,12 +239,28 @@ def run_gui(
     # Configure application-wide window icon
     setup_application_icon(app)
 
+    cfg = config or AppConfig()
+
+    guard = single_instance_guard or SingleInstanceGuard(
+        app_name=cfg.app_name,
+        data_dir=cfg.data_dir,
+    )
+
+    # Check if an existing instance is already running
+    if guard.is_another_instance_running():
+        logger.info("Another instance of %s is already running. Focus transferred. Exiting.", cfg.app_name)
+        return 0
+
+    if not guard.start_listening():
+        logger.warning("Could not initialize single-instance listener server for %s.", cfg.app_name)
+
     controller = ApplicationController(
-        config=config,
+        config=cfg,
         auth_service=auth_service,
         vault_service=vault_service,
         session_manager=session_manager,
         clipboard_service=clipboard_service,
+        single_instance_guard=guard,
     )
     controller.start()
 

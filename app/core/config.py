@@ -52,6 +52,7 @@ def get_default_data_dir() -> Path:
         if local_app_data:
             return Path(local_app_data) / "SecureVault"
         return Path.home() / "AppData" / "Local" / "SecureVault"
+    return Path.home() / ".local" / "share" / "securevault"
 
 
 def get_asset_path(filename: str) -> Path:

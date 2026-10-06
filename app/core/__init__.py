@@ -20,6 +20,7 @@ from app.core.exceptions import (
     ValidationError,
 )
 from app.core.logging import get_logger, setup_logging
+from app.core.single_instance import SingleInstanceGuard, bring_window_to_front
 
 __all__ = [
     "AppConfig",
@@ -35,4 +36,6 @@ __all__ = [
     "ValidationError",
     "get_logger",
     "setup_logging",
+    "SingleInstanceGuard",
+    "bring_window_to_front",
 ]
